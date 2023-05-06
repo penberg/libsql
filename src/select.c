@@ -7163,6 +7163,18 @@ int sqlite3Select(
   memset(&sSort, 0, sizeof(sSort));
   sSort.pOrderBy = p->pOrderBy;
 
+  for(i=0; !p->pPrior && i<pTabList->nSrc; i++){
+    SrcItem *pItem = &pTabList->a[i];
+    Table *pTab = pItem->pTab;
+
+    assert( pTab!=0 );
+
+    if( (pTab->tabFlags & TF_MVCC)!=0 ){
+      sqlite3VdbeAddOp0(v, OP_MVCCOpenRead);
+      goto select_end;
+    }
+  }
+
   /* Try to do various optimizations (flattening subqueries, and strength
   ** reduction of join operators) in the FROM clause up into the main query
   */

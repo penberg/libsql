@@ -8837,6 +8837,22 @@ case OP_ReleaseReg: {
 }
 #endif
 
+
+/* Opcode: MVCCOpenRead * * * * *
+** Open a MVCC-backed table for writing.
+*/
+case OP_MVCCOpenRead: {
+  break;
+}
+
+
+/* Opcode: MVCCOpenWrite * * * * *
+** Open a MVCC-backed table for writing.
+*/
+case OP_MVCCOpenWrite: {
+  break;
+}
+
 /* Opcode: Noop * * * * *
 **
 ** Do nothing.  This instruction is often useful as a jump

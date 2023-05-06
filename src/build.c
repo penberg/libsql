@@ -2732,6 +2732,9 @@ void sqlite3EndTable(
     }
     p->tabFlags |= TF_RandomRowid;
   }
+  if( tabOpts & TF_MVCC ){
+    p->tabFlags |= TF_MVCC;
+  }
   iDb = sqlite3SchemaToIndex(db, p->pSchema);
 
 #ifndef SQLITE_OMIT_CHECK

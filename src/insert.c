@@ -754,6 +754,12 @@ void sqlite3Insert(
   if( pTab==0 ){
     goto insert_cleanup;
   }
+  if( (pTab->tabFlags & TF_MVCC)!=0 ){
+    v = sqlite3GetVdbe(pParse);
+    if( v==0 ) goto insert_cleanup;
+    sqlite3VdbeAddOp0(v, OP_MVCCOpenWrite);
+    goto insert_cleanup;
+  }
   iDb = sqlite3SchemaToIndex(db, pTab->pSchema);
   assert( iDb<db->nDb );
   if( sqlite3AuthCheck(pParse, SQLITE_INSERT, pTab->zName, 0,

@@ -2427,6 +2427,7 @@ struct Table {
 #define TF_Strict         0x00010000 /* STRICT mode */
 /* libSQL extension */
 #define TF_RandomRowid    0x01000000 /* Random rowid */
+#define TF_MVCC           0x02000000 /* Multi-version concurrency control */
 
 #define LIBSQL_RANDOM_ROWID_MARKER 0xffffffff
 

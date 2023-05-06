@@ -224,6 +224,14 @@ table_option(A) ::= RANDOM nm(X). {
     sqlite3ErrorMsg(pParse, "unknown table option: %.*s", X.n, X.z);
   }
 }
+table_option(A) ::= WITH nm(X). {
+  if( X.n==4 && sqlite3_strnicmp(X.z,"mvcc",4)==0 ){
+    A = TF_MVCC;
+  }else{
+    A = 0;
+    sqlite3ErrorMsg(pParse, "unknown table option: %.*s", X.n, X.z);
+  }
+}
 table_option(A) ::= nm(X). {
   if( X.n==6 && sqlite3_strnicmp(X.z,"strict",6)==0 ){
     A = TF_Strict;
