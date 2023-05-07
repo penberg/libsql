@@ -34,6 +34,10 @@ void sqlite3OpenTable(
   assert( !IsVirtual(pTab) );
   assert( pParse->pVdbe!=0 );
   v = pParse->pVdbe;
+  if( opcode==OP_MVCCOpenWrite || opcode==OP_MVCCOpenRead ) {
+    sqlite3VdbeAddOp0(v, OP_MVCCOpenWrite);
+    return;
+  }
   assert( opcode==OP_OpenWrite || opcode==OP_OpenRead );
   sqlite3TableLock(pParse, iDb, pTab->tnum, 
                    (opcode==OP_OpenWrite)?1:0, pTab->zName);
@@ -752,12 +756,6 @@ void sqlite3Insert(
   assert( pTabList->nSrc==1 );
   pTab = sqlite3SrcListLookup(pParse, pTabList);
   if( pTab==0 ){
-    goto insert_cleanup;
-  }
-  if( (pTab->tabFlags & TF_MVCC)!=0 ){
-    v = sqlite3GetVdbe(pParse);
-    if( v==0 ) goto insert_cleanup;
-    sqlite3VdbeAddOp0(v, OP_MVCCOpenWrite);
     goto insert_cleanup;
   }
   iDb = sqlite3SchemaToIndex(db, pTab->pSchema);
@@ -2673,6 +2671,13 @@ int sqlite3OpenTableAndIndices(
     ** for improved error detection. */
     *piDataCur = *piIdxCur = -999;
     return 0;
+  }
+  if( (pTab->tabFlags & TF_MVCC)!=0 ){
+    switch( op ) {
+      case OP_OpenWrite: op = OP_MVCCOpenWrite; break;
+      case OP_OpenRead: op = OP_MVCCOpenRead; break;
+      default: assert(0);
+    }
   }
   iDb = sqlite3SchemaToIndex(pParse->db, pTab->pSchema);
   v = pParse->pVdbe;
