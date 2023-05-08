@@ -2680,6 +2680,13 @@ void sqlite3VdbeFreeCursorNN(Vdbe *p, VdbeCursor *pCx){
       sqlite3BtreeCloseCursor(pCx->uc.pCursor);
       break;
     }
+    case CURTYPE_MVCC: {
+      assert( pCx->uc.pCursor!=0 );
+      // FIXME: the database should be opened and closed when opening/closing the B-Tree,
+      // not on each cursor open/free.
+      mvccrs_free_database(pCx->uc.pMVCC);
+      break;
+    }
 #ifndef SQLITE_OMIT_VIRTUALTABLE
     case CURTYPE_VTAB: {
       sqlite3_vtab_cursor *pVCur = pCx->uc.pVCur;
