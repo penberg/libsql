@@ -24,6 +24,13 @@
 #include "ext/udf/wasm_bindings.h"
 #endif
 
+// FIXME: Obnoxious stub - but works perfectly for prototyping!
+int mvccGetRowid(VdbeCursor *pC, i64 *pRowid){
+  static i64 x = 42;
+  *pRowid = x++;
+  return SQLITE_OK;
+}
+
 /*
 ** Invoke this macro on memory cells just prior to changing the
 ** value of the cell.  This macro verifies that shallow copies are
@@ -5415,13 +5422,6 @@ case OP_DropWasmFunc: {
 }
 
 #endif
-
-// FIXME: Obnoxious stub - but works perfectly for prototyping!
-int mvccGetRowid(VdbeCursor *pC, i64 *pRowid){
-  static i64 x = 42;
-  *pRowid = x++;
-  return SQLITE_OK;
-}
 
 /* Opcode: NewRowid P1 P2 P3 * *
 ** Synopsis: r[P2]=rowid
