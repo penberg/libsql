@@ -5416,6 +5416,13 @@ case OP_DropWasmFunc: {
 
 #endif
 
+// FIXME: Obnoxious stub - but works perfectly for prototyping!
+int mvccGetRowid(VdbeCursor *pC, i64 *pRowid){
+  static i64 x = 42;
+  *pRowid = x++;
+  return SQLITE_OK;
+}
+
 /* Opcode: NewRowid P1 P2 P3 * *
 ** Synopsis: r[P2]=rowid
 **
@@ -5448,6 +5455,14 @@ case OP_NewRowid: {           /* out2 */
   pC = p->apCsr[pOp->p1];
   assert( pC!=0 );
   assert( pC->isTable );
+
+  if( pC->eCurType==CURTYPE_MVCC ) {
+    rc = mvccGetRowid(pC, &v);
+    if( rc!=SQLITE_OK ) goto abort_due_to_error;
+    pOut->u.i = v;
+    break;
+  }
+
   assert( pC->eCurType==CURTYPE_BTREE );
   assert( pC->uc.pCursor!=0 );
   {
@@ -5609,6 +5624,15 @@ case OP_Insert: {
   assert( memIsValid(pData) );
   pC = p->apCsr[pOp->p1];
   assert( pC!=0 );
+
+  if( pC->eCurType==CURTYPE_MVCC ) {
+    pKey = &aMem[pOp->p3];
+    fprintf(stderr, "MVCC Insert: %u -> %.*s\n", pKey->u.i, pData->n, pData->z);
+    rc = mvccrs_insert(pC->uc.pMVCC, pKey->u.i, pData->z, pData->n);
+    if( rc ) goto abort_due_to_error;
+    break;
+  }
+
   assert( pC->eCurType==CURTYPE_BTREE );
   assert( pC->deferredMoveto==0 );
   assert( pC->uc.pCursor!=0 );
@@ -8850,6 +8874,33 @@ case OP_MVCCOpenRead: {
 ** Open a MVCC-backed table for writing.
 */
 case OP_MVCCOpenWrite: {
+  fprintf(stderr, "MVCCOpenWrite\n");
+  if( p->expired==1 ){
+    rc = SQLITE_ABORT_ROLLBACK;
+    goto abort_due_to_error;
+  }
+
+  // FIXME: assumes there's no "keyinfo", and p4 contains an integer, because we only support opening MVCC tables
+  if( pOp->p4type!=P4_INT32 ) {
+    rc = SQLITE_CORRUPT_BKPT;
+    sqlite3VdbeError(p, "MVCCOpenWrite: p4 register was expected to hold an integer, not KeyInfo structure");
+    goto abort_due_to_error;
+  }
+  VdbeCursor *pCur = allocateCursor(p, pOp->p1, pOp->p4.i, CURTYPE_MVCC);
+  if( pCur==0 ) goto no_mem;
+  pCur->iDb = pOp->p3;
+  pCur->nullRow = 1;
+  pCur->isOrdered = 1;
+  pCur->pgnoRoot = pOp->p2;
+  pCur->pKeyInfo = 0;
+  pCur->isTable = 1; // We don't support opening any indexes
+
+  Db *pDb = &db->aDb[pOp->p3];
+  char *zMVCCPath = sqlite3MPrintf(db, "%s-mvcc", pDb->pBt->pBt->pPager->zFilename);
+  // FIXME: we don't really want to open a new database on every cursor. We should open a db once, and manage its cursors here.
+  pCur->uc.pMVCC = mvccrs_new_database(zMVCCPath); 
+  fprintf(stderr, "MVCCOpenWrite finished\n");
+  sqlite3DbFree(db, zMVCCPath);
   break;
 }
 

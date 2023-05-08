@@ -1,0 +1,3 @@
+[submodule "mvcc-rs"]
+	path = mvcc-rs
+	url = git@github.com:penberg/mvcc-rs.git

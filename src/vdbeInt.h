@@ -62,6 +62,14 @@ typedef struct AuxData AuxData;
 #define CURTYPE_VTAB        2
 #define CURTYPE_PSEUDO      3
 
+#define CURTYPE_MVCC        64
+
+// Definitions for mvcc-rs
+typedef struct MVCCDatabase MVCCDatabase;
+MVCCDatabase *mvccrs_new_database(const char *path);
+void mvccrs_free_database(MVCCDatabase *);
+int mvccrs_insert(MVCCDatabase *, i64 id, const void *data, u64 data_size);
+
 /*
 ** A VdbeCursor is an superclass (a wrapper) for various cursor objects:
 **
@@ -113,6 +121,7 @@ struct VdbeCursor {
     BtCursor *pCursor;          /* CURTYPE_BTREE or _PSEUDO.  Btree cursor */
     sqlite3_vtab_cursor *pVCur; /* CURTYPE_VTAB.              Vtab cursor */
     VdbeSorter *pSorter;        /* CURTYPE_SORTER.            Sorter object */
+    MVCCDatabase *pMVCC;        /* CURTYPE_MVCC.              MVCC database (should be changed to a cursor eventually) */
   } uc;
   KeyInfo *pKeyInfo;      /* Info about index keys needed by index cursors */
   u32 iHdrOffset;         /* Offset to next unparsed byte of the header */
