@@ -381,6 +381,15 @@ WBTOP = $(TOP)/src/rust/wasmtime-bindings
 WBSRC = \
   $(WBTOP)/src/lib.rs
 
+# Path to the Rust crate with mvcc-rs
+#
+MVCCRSTOP = $(TOP)/mvcc-rs
+
+# Source code of the mvcc-rs library
+#
+MVCCRSSRC = \
+  $(MVCCRSTOP)/database/src/lib.rs
+
 # If the WebAssembly runtime library is enabled, link against it
 ifeq ($(OPT_WASM_RUNTIME),y)
 OPT_WASM_RUNTIME_LIBRARY_TARGET=liblibsql_wasm
@@ -394,6 +403,10 @@ else
 OPT_WASM_RUNTIME_LIBRARY_TARGET=
 OPT_WASM_RUNTIME_INSTALL_TARGET=
 endif
+
+# FIXME: Unconditional for now
+MVCCRS_TARGET=libmvcc_rs
+TLIBS += $(MVCCRSTOP)/target/release/libmvcc_rs.a
 
 # Source code to the test files.
 #
@@ -693,11 +706,11 @@ sqlite3.pc: $(TOP)/sqlite3.pc.in
 libsql.pc: $(TOP)/libsql.pc.in
 	./config.status
 
-libsqlite3.la:	$(LIBOBJ) $(OPT_WASM_RUNTIME_LIBRARY_TARGET)
+libsqlite3.la:	$(LIBOBJ) $(OPT_WASM_RUNTIME_LIBRARY_TARGET) $(MVCCRS_TARGET)
 	$(LTLINK) -no-undefined -o $@ $(LIBOBJ) $(TLIBS) \
 		${ALLOWRELEASE} -rpath "$(libdir)" -version-info "8:6:8"
 
-liblibsql.la:	$(LIBOBJ) $(OPT_WASM_RUNTIME_LIBRARY_TARGET)
+liblibsql.la:	$(LIBOBJ) $(OPT_WASM_RUNTIME_LIBRARY_TARGET) $(MVCCRS_TARGET)
 	$(LTLINK) -no-undefined -o $@ $(LIBOBJ) $(TLIBS) \
 		${ALLOWRELEASE} -rpath "$(libdir)" -version-info "8:6:8"
 
@@ -708,7 +721,7 @@ libtclsqlite3.la:	tclsqlite.lo libsqlite3.la
 		-version-info "8:6:8" \
 		-avoid-version
 
-sqlite3$(TEXE):	shell.c sqlite3.c $(OPT_WASM_RUNTIME_LIBRARY_TARGET)
+sqlite3$(TEXE):	shell.c sqlite3.c $(OPT_WASM_RUNTIME_LIBRARY_TARGET) $(MVCCRS_TARGET)
 	$(LTLINK) $(READLINE_FLAGS) $(SHELL_OPT) -o $@ \
 		shell.c sqlite3.c \
 		$(LIBREADLINE) $(TLIBS) -rpath "$(libdir)"
@@ -819,6 +832,9 @@ mptest:	mptester$(TEXE)
 
 liblibsql_wasm:	$(WBSRC)
 	cd $(WBTOP) && cargo build --release --lib && mkdir -p $(TOP)/.libs && cp target/release/liblibsql_wasm.* $(TOP)/.libs/
+
+libmvcc_rs:	$(MVCCRSSRC)
+	cd $(MVCCRSTOP) && cargo build -F c_bindings --release --lib && mkdir -p $(TOP)/.libs && cp target/release/libmvcc_rs.* $(TOP)/.libs/
 
 sqlite3.c:	.target_source $(TOP)/tool/mksqlite3c.tcl
 	$(TCLSH_CMD) $(TOP)/tool/mksqlite3c.tcl $(AMALGAMATION_LINE_MACROS)
