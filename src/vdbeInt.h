@@ -62,6 +62,8 @@ typedef struct AuxData AuxData;
 #define CURTYPE_VTAB        2
 #define CURTYPE_PSEUDO      3
 
+#define CURTYPE_MVCC        64
+
 /*
 ** A VdbeCursor is an superclass (a wrapper) for various cursor objects:
 **

@@ -35,7 +35,14 @@ void sqlite3OpenTable(
   assert( pParse->pVdbe!=0 );
   v = pParse->pVdbe;
   if( opcode==OP_MVCCOpenWrite || opcode==OP_MVCCOpenRead ) {
-    sqlite3VdbeAddOp0(v, OP_MVCCOpenWrite);
+    if( !HasRowid(pTab) ){
+      fprintf(stderr, "no rowid!");
+      sqlite3ErrorMsg(pParse, "MVCC only works for ROWID tables for now, \"%s\" is not ROWID", pTab->zName);
+      return;
+    }
+    //sqlite3TableLock(pParse, iDb, pTab->tnum, 0, pTab->zName);
+    sqlite3VdbeAddOp4Int(v, opcode, iCur, pTab->tnum, iDb, pTab->nNVCol);
+    VdbeComment((v, "MVCC %s", pTab->zName));
     return;
   }
   assert( opcode==OP_OpenWrite || opcode==OP_OpenRead );
