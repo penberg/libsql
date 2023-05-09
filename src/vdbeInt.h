@@ -67,6 +67,12 @@ typedef struct AuxData AuxData;
 
 #define CURTYPE_MVCC        64
 
+struct MVCCCursor {
+  MVCCDatabaseRef pMVCC;
+  i64 rowId;
+};
+typedef struct MVCCCursor MVCCCursor;
+
 /*
 ** A VdbeCursor is an superclass (a wrapper) for various cursor objects:
 **
@@ -118,7 +124,7 @@ struct VdbeCursor {
     BtCursor *pCursor;          /* CURTYPE_BTREE or _PSEUDO.  Btree cursor */
     sqlite3_vtab_cursor *pVCur; /* CURTYPE_VTAB.              Vtab cursor */
     VdbeSorter *pSorter;        /* CURTYPE_SORTER.            Sorter object */
-    MVCCDatabaseRef pMVCC;     /* CURTYPE_MVCC.               MVCC database (should be changed to a cursor eventually) */
+    MVCCCursor mvccCursor;      /* CURTYPE_MVCC.              MVCC cursor */
   } uc;
   KeyInfo *pKeyInfo;      /* Info about index keys needed by index cursors */
   u32 iHdrOffset;         /* Offset to next unparsed byte of the header */
