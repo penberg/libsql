@@ -8895,11 +8895,10 @@ case OP_MVCCOpenWrite: {
   pCur->isTable = 1; // We don't support opening any indexes
 
   Db *pDb = &db->aDb[pOp->p3];
-  char *zMVCCPath = sqlite3MPrintf(db, "%s-mvcc", pDb->pBt->pBt->pPager->zFilename);
+
   // FIXME: we don't really want to open a new database on every cursor. We should open a db once, and manage its cursors here.
-  pCur->uc.pMVCC = MVCCDatabaseOpen(zMVCCPath);
+  pCur->uc.pMVCC = db->pMVCC;
   fprintf(stderr, "MVCCOpenWrite finished\n");
-  sqlite3DbFree(db, zMVCCPath);
   break;
 }
 
