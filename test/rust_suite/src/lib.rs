@@ -1,3 +1,4 @@
+mod mvcc;
 mod random_rowid;
 mod virtual_wal;
 
