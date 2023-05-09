@@ -36,7 +36,6 @@ void sqlite3OpenTable(
   v = pParse->pVdbe;
   if( opcode==OP_MVCCOpenWrite || opcode==OP_MVCCOpenRead ) {
     if( !HasRowid(pTab) ){
-      fprintf(stderr, "no rowid!");
       sqlite3ErrorMsg(pParse, "MVCC only works for ROWID tables for now, \"%s\" is not ROWID", pTab->zName);
       return;
     }

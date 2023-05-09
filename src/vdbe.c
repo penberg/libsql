@@ -5627,8 +5627,7 @@ case OP_Insert: {
 
   if( pC->eCurType==CURTYPE_MVCC ) {
     pKey = &aMem[pOp->p3];
-    fprintf(stderr, "MVCC Insert: %u -> %.*s\n", pKey->u.i, pData->n, pData->z);
-    rc = mvccrs_insert(pC->uc.pMVCC, pKey->u.i, pData->z, pData->n);
+    rc = MVCCDatabaseInsert(pC->uc.pMVCC, pKey->u.i, pData->z, pData->n);
     if( rc ) goto abort_due_to_error;
     break;
   }
@@ -8898,7 +8897,7 @@ case OP_MVCCOpenWrite: {
   Db *pDb = &db->aDb[pOp->p3];
   char *zMVCCPath = sqlite3MPrintf(db, "%s-mvcc", pDb->pBt->pBt->pPager->zFilename);
   // FIXME: we don't really want to open a new database on every cursor. We should open a db once, and manage its cursors here.
-  pCur->uc.pMVCC = mvccrs_new_database(zMVCCPath); 
+  pCur->uc.pMVCC = MVCCDatabaseOpen(zMVCCPath);
   fprintf(stderr, "MVCCOpenWrite finished\n");
   sqlite3DbFree(db, zMVCCPath);
   break;

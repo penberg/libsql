@@ -2684,7 +2684,7 @@ void sqlite3VdbeFreeCursorNN(Vdbe *p, VdbeCursor *pCx){
       assert( pCx->uc.pCursor!=0 );
       // FIXME: the database should be opened and closed when opening/closing the B-Tree,
       // not on each cursor open/free.
-      mvccrs_free_database(pCx->uc.pMVCC);
+      MVCCDatabaseClose(pCx->uc.pMVCC);
       break;
     }
 #ifndef SQLITE_OMIT_VIRTUALTABLE
