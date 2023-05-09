@@ -2854,6 +2854,11 @@ op_column_restart:
        || (pC->eCurType==CURTYPE_PSEUDO && pC->seekResult==0) );
   aOffset = pC->aOffset;
   assert( aOffset==pC->aType+pC->nField );
+
+  if( pC->eCurType==CURTYPE_MVCC ){
+    fprintf(stderr, "FIXME: this is where we're supposed to read from mvcc!\n");
+  }
+
   assert( pC->eCurType!=CURTYPE_VTAB );
   assert( pC->eCurType!=CURTYPE_PSEUDO || pC->nullRow );
   assert( pC->eCurType!=CURTYPE_SORTER );
@@ -5315,6 +5320,7 @@ case OP_SeekRowid: {        /* jump, in3, ncycle */
   testcase( pIn3->flags & MEM_IntReal );
   testcase( pIn3->flags & MEM_Real );
   testcase( (pIn3->flags & (MEM_Str|MEM_Int))==MEM_Str );
+
   if( (pIn3->flags & (MEM_Int|MEM_IntReal))==0 ){
     /* If pIn3->u.i does not contain an integer, compute iKey as the
     ** integer value of pIn3.  Jump to P2 if pIn3 cannot be converted
@@ -5341,6 +5347,13 @@ notExistsWithKey:
   if( pOp->opcode==OP_SeekRowid ) pC->seekOp = OP_SeekRowid;
 #endif
   assert( pC->isTable );
+
+  if( pC->eCurType==CURTYPE_MVCC ) {
+    fprintf(stderr, "Setting MVCC cursor rowid to %llu\n", iKey);
+    pC->uc.mvccCursor.rowId = iKey;
+    break;
+  }
+
   assert( pC->eCurType==CURTYPE_BTREE );
   pCrsr = pC->uc.pCursor;
   assert( pCrsr!=0 );
@@ -5627,7 +5640,7 @@ case OP_Insert: {
 
   if( pC->eCurType==CURTYPE_MVCC ) {
     pKey = &aMem[pOp->p3];
-    rc = MVCCDatabaseInsert(pC->uc.pMVCC, pKey->u.i, pData->z, pData->n);
+    rc = MVCCDatabaseInsert(pC->uc.mvccCursor.pMVCC, pKey->u.i, pData->z, pData->n);
     if( rc ) goto abort_due_to_error;
     break;
   }
@@ -8864,16 +8877,12 @@ case OP_ReleaseReg: {
 /* Opcode: MVCCOpenRead * * * * *
 ** Open a MVCC-backed table for writing.
 */
-case OP_MVCCOpenRead: {
-  break;
-}
-
-
+case OP_MVCCOpenRead:
+  // fall-through
 /* Opcode: MVCCOpenWrite * * * * *
 ** Open a MVCC-backed table for writing.
 */
 case OP_MVCCOpenWrite: {
-  fprintf(stderr, "MVCCOpenWrite\n");
   if( p->expired==1 ){
     rc = SQLITE_ABORT_ROLLBACK;
     goto abort_due_to_error;
@@ -8882,7 +8891,7 @@ case OP_MVCCOpenWrite: {
   // FIXME: assumes there's no "keyinfo", and p4 contains an integer, because we only support opening MVCC tables
   if( pOp->p4type!=P4_INT32 ) {
     rc = SQLITE_CORRUPT_BKPT;
-    sqlite3VdbeError(p, "MVCCOpenWrite: p4 register was expected to hold an integer, not KeyInfo structure");
+    sqlite3VdbeError(p, "MVCC Cursor: p4 register was expected to hold an integer, not KeyInfo structure");
     goto abort_due_to_error;
   }
   VdbeCursor *pCur = allocateCursor(p, pOp->p1, pOp->p4.i, CURTYPE_MVCC);
@@ -8892,13 +8901,10 @@ case OP_MVCCOpenWrite: {
   pCur->isOrdered = 1;
   pCur->pgnoRoot = pOp->p2;
   pCur->pKeyInfo = 0;
-  pCur->isTable = 1; // We don't support opening any indexes
+  pCur->isTable = 1; // We don't support opening any indexes or WITHOUT-ROWID-tables
 
-  Db *pDb = &db->aDb[pOp->p3];
-
-  // FIXME: we don't really want to open a new database on every cursor. We should open a db once, and manage its cursors here.
-  pCur->uc.pMVCC = db->pMVCC;
-  fprintf(stderr, "MVCCOpenWrite finished\n");
+  pCur->uc.mvccCursor.pMVCC = db->pMVCC;
+  pCur->uc.mvccCursor.rowId = 0;
   break;
 }
 

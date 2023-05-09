@@ -6217,6 +6217,11 @@ WhereInfo *sqlite3WhereBegin(
      || (pTabItem->fg.jointype & (JT_LTORJ|JT_RIGHT))!=0
     ){
       int op = OP_OpenRead;
+
+      if( (pTab->tabFlags & TF_MVCC)!=0 ){
+        op = OP_MVCCOpenRead;
+      }
+
       if( pWInfo->eOnePass!=ONEPASS_OFF ){
         op = OP_OpenWrite;
         pWInfo->aiCurOnePass[0] = pTabItem->iCursor;
