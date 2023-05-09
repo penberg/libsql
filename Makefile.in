@@ -388,7 +388,7 @@ MVCCRSTOP = $(TOP)/mvcc-rs
 # Source code of the mvcc-rs library
 #
 MVCCRSSRC = \
-  $(MVCCRSTOP)/database/src/lib.rs
+  $(MVCCRSTOP)/mvcc-rs/src/lib.rs $(MVCCRSTOP)/bindings/c/src/lib.rs
 
 # If the WebAssembly runtime library is enabled, link against it
 ifeq ($(OPT_WASM_RUNTIME),y)
@@ -405,8 +405,8 @@ OPT_WASM_RUNTIME_INSTALL_TARGET=
 endif
 
 # FIXME: Unconditional for now
-MVCCRS_TARGET=libmvcc_rs
-TLIBS += $(MVCCRSTOP)/target/release/libmvcc_rs.a
+MVCCRS_TARGET=libmvcc_c
+TLIBS += $(MVCCRSTOP)/target/release/libmvcc_c.a
 
 # Source code to the test files.
 #
@@ -833,10 +833,10 @@ mptest:	mptester$(TEXE)
 liblibsql_wasm:	$(WBSRC)
 	cd $(WBTOP) && cargo build --release --lib && mkdir -p $(TOP)/.libs && cp target/release/liblibsql_wasm.* $(TOP)/.libs/
 
-libmvcc_rs:	$(MVCCRSSRC)
-	cd $(MVCCRSTOP) && cargo build -F c_bindings --release --lib && mkdir -p $(TOP)/.libs && cp target/release/libmvcc_rs.* $(TOP)/.libs/
+libmvcc_c:	$(MVCCRSSRC)
+	cd $(MVCCRSTOP) && cargo build -F c_bindings --release --lib && mkdir -p $(TOP)/.libs && cp target/release/libmvcc_c.* $(TOP)/.libs/
 
-sqlite3.c:	.target_source $(TOP)/tool/mksqlite3c.tcl
+sqlite3.c:	.target_source $(TOP)/tool/mksqlite3c.tcl $(MVCCRS_TARGET)
 	$(TCLSH_CMD) $(TOP)/tool/mksqlite3c.tcl $(AMALGAMATION_LINE_MACROS)
 	cp tsrc/sqlite3ext.h .
 	cp $(TOP)/ext/session/sqlite3session.h .
@@ -1548,7 +1548,7 @@ liblibsql_wasm_install:	liblibsql_wasm
 	ln -fs $(DESTDIR)$(libdir)/liblibsql_wasm.so.0.0 $(DESTDIR)$(libdir)/liblibsql_wasm.so.0
 	ln -fs $(DESTDIR)$(libdir)/liblibsql_wasm.so.0.0 $(DESTDIR)$(libdir)/liblibsql_wasm.so
 
-liblibsql_install:	liblibsql.la $(OPT_WASM_RUNTIME_INSTALL_TARGET)
+liblibsql_install:	liblibsql.la $(OPT_WASM_RUNTIME_INSTALL_TARGET) $(MVCCRS_TARGET)
 	$(INSTALL) -d $(DESTDIR)$(libdir)
 	$(LTINSTALL) liblibsql.la $(DESTDIR)$(libdir)
 
