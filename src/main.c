@@ -1267,6 +1267,12 @@ static int sqlite3Close(sqlite3 *db, int forceZombie){
   */
   db->eOpenState = SQLITE_STATE_ZOMBIE;
   sqlite3LeaveMutexAndCloseZombie(db);
+
+  if( db->pMVCC ) {
+    MVCCDatabaseClose(db->pMVCC);
+    db->pMVCC = 0;
+  }
+
   return SQLITE_OK;
 }
 
@@ -3547,6 +3553,11 @@ static int openDatabase(
   }
 
   sqlite3_wal_autocheckpoint(db, SQLITE_DEFAULT_WAL_AUTOCHECKPOINT);
+
+  // MVCC initialization
+  char *mvcc_path = sqlite3_mprintf("%s-mvcc", zFilename);
+  db->pMVCC = MVCCDatabaseOpen(mvcc_path);
+  sqlite3_free(mvcc_path);
 
 opendb_out:
   if( db ){

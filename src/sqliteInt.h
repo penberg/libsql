@@ -214,6 +214,9 @@
 
 #include "sqliteLimit.h"
 
+#include <stdint.h> // FIXME: required for mvcc.h
+#include "mvcc-rs/bindings/c/include/mvcc.h"
+
 /* Disable nuisance warnings on Borland compilers */
 #if defined(__BORLANDC__)
 #pragma warn -rch /* unreachable code */
@@ -1745,6 +1748,7 @@ struct sqlite3 {
   libsql_wasm_ctx wasm;        /* WebAssembly runtime context */
 #endif
   libsql_wal_methods* pWalMethods; /* Custom WAL methods */
+  MVCCDatabaseRef pMVCC;           /* MVCC database reference */
 };
 
 /*
