@@ -1548,7 +1548,7 @@ liblibsql_wasm_install:	liblibsql_wasm
 	ln -fs $(DESTDIR)$(libdir)/liblibsql_wasm.so.0.0 $(DESTDIR)$(libdir)/liblibsql_wasm.so.0
 	ln -fs $(DESTDIR)$(libdir)/liblibsql_wasm.so.0.0 $(DESTDIR)$(libdir)/liblibsql_wasm.so
 
-liblibsql_install:	liblibsql.la $(OPT_WASM_RUNTIME_INSTALL_TARGET)
+liblibsql_install:	liblibsql.la $(OPT_WASM_RUNTIME_INSTALL_TARGET) $(MVCCRS_TARGET)
 	$(INSTALL) -d $(DESTDIR)$(libdir)
 	$(LTINSTALL) liblibsql.la $(DESTDIR)$(libdir)
 
