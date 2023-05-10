@@ -2865,7 +2865,6 @@ op_column_restart:
     pDest = &aMem[pOp->p3];
     char *mvcc_value = NULL;
     int64_t mvcc_value_size = 0;
-    fprintf(stderr, "reading mvcc value\n");
     if (pC->uc.mvccCursor.pScan != NULL) {
       rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &mvcc_value, &mvcc_value_size);
     } else {
