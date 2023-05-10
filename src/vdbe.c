@@ -246,6 +246,8 @@ static void test_trace_breakpoint(int pc, Op *pOp, Vdbe *v){
 /* Return true if the cursor was opened using the OP_OpenSorter opcode. */
 #define isSorter(x) ((x)->eCurType==CURTYPE_SORTER)
 
+#define isMVCC(x) ((x)->eCurType==CURTYPE_MVCC)
+
 /*
 ** Allocate VdbeCursor number iCur.  Return a pointer to it.  Return NULL
 ** if we run out of memory.
@@ -2855,8 +2857,23 @@ op_column_restart:
   aOffset = pC->aOffset;
   assert( aOffset==pC->aType+pC->nField );
 
-  if( pC->eCurType==CURTYPE_MVCC ){
-    fprintf(stderr, "FIXME: this is where we're supposed to read from mvcc!\n");
+  if( isMVCC(pC) ){
+    pDest = &aMem[pOp->p3];
+    char *mvcc_value = NULL;
+    int64_t mvcc_value_size = 0;
+    rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &mvcc_value, &mvcc_value_size);
+    if (rc) goto abort_due_to_error;
+    if (mvcc_value_size >= 0) {
+      // FIXME: mvcc_value holds the serialized record, which is not necessarily a string
+      // and contains a header. It makes no sense to present it as a string in general.
+      // We should probably just deserialize it mvcc-rs-side and expose the result to C
+      // in deserialized form - type + its data.
+      sqlite3VdbeMemSetStr(pDest, mvcc_value, mvcc_value_size, SQLITE_UTF8, MVCCFreeStr);
+    } else {
+      // FIXME: if the value is not in the database, it's SeekRowid that should have returned failure
+      sqlite3VdbeMemSetNull(pDest);
+    }
+    goto op_column_out;
   }
 
   assert( pC->eCurType!=CURTYPE_VTAB );
@@ -5348,7 +5365,7 @@ notExistsWithKey:
 #endif
   assert( pC->isTable );
 
-  if( pC->eCurType==CURTYPE_MVCC ) {
+  if( isMVCC(pC) ) {
     fprintf(stderr, "Setting MVCC cursor rowid to %llu\n", iKey);
     pC->uc.mvccCursor.rowId = iKey;
     break;
@@ -5469,7 +5486,7 @@ case OP_NewRowid: {           /* out2 */
   assert( pC!=0 );
   assert( pC->isTable );
 
-  if( pC->eCurType==CURTYPE_MVCC ) {
+  if( isMVCC(pC) ) {
     rc = mvccGetRowid(pC, &v);
     if( rc!=SQLITE_OK ) goto abort_due_to_error;
     pOut->u.i = v;
@@ -5638,7 +5655,7 @@ case OP_Insert: {
   pC = p->apCsr[pOp->p1];
   assert( pC!=0 );
 
-  if( pC->eCurType==CURTYPE_MVCC ) {
+  if( isMVCC(pC) ) {
     pKey = &aMem[pOp->p3];
     rc = MVCCDatabaseInsert(pC->uc.mvccCursor.pMVCC, pKey->u.i, pData->z, pData->n);
     if( rc ) goto abort_due_to_error;
@@ -6258,6 +6275,10 @@ case OP_Rewind: {        /* jump, ncycle */
 #endif
   if( isSorter(pC) ){
     rc = sqlite3VdbeSorterRewind(pC, &res);
+  }else if( isMVCC(pC) ){
+    rc = SQLITE_IOERR_READ;
+    sqlite3VdbeError(p, "Scans are not implemented for MVCC! Please try again later");
+    goto abort_due_to_error;
   }else{
     assert( pC->eCurType==CURTYPE_BTREE );
     pCrsr = pC->uc.pCursor;
