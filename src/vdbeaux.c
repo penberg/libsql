@@ -2681,8 +2681,11 @@ void sqlite3VdbeFreeCursorNN(Vdbe *p, VdbeCursor *pCx){
       break;
     }
     case CURTYPE_MVCC: {
-      assert( pCx->uc.pCursor!=0 );
-      // TODO: once we store state in the MVCC cursor, free it here
+      assert( pCx->uc.mvccCursor.pMVCC!=0 );
+      if (pCx->uc.mvccCursor.pScan) {
+        MVCCScanCursorClose(pCx->uc.mvccCursor.pScan);
+        pCx->uc.mvccCursor.pScan = NULL;
+      }
       break;
     }
 #ifndef SQLITE_OMIT_VIRTUALTABLE

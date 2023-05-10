@@ -319,6 +319,10 @@ static VdbeCursor *allocateCursor(
         &pMem->z[ROUND8P(sizeof(VdbeCursor))+2*sizeof(u32)*nField];
     sqlite3BtreeCursorZero(pCx->uc.pCursor);
   }
+  if (isMVCC(pCx)) {
+    pCx->uc.mvccCursor.pMVCC = NULL;
+    pCx->uc.mvccCursor.pScan = NULL;
+  }
   return pCx;
 }
 
@@ -2861,7 +2865,12 @@ op_column_restart:
     pDest = &aMem[pOp->p3];
     char *mvcc_value = NULL;
     int64_t mvcc_value_size = 0;
-    rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &mvcc_value, &mvcc_value_size);
+    fprintf(stderr, "reading mvcc value\n");
+    if (pC->uc.mvccCursor.pScan != NULL) {
+      rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &mvcc_value, &mvcc_value_size);
+    } else {
+      rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &mvcc_value, &mvcc_value_size);
+    }
     if (rc) goto abort_due_to_error;
     if (mvcc_value_size >= 0) {
       // FIXME: mvcc_value holds the serialized record, which is not necessarily a string
@@ -6276,9 +6285,11 @@ case OP_Rewind: {        /* jump, ncycle */
   if( isSorter(pC) ){
     rc = sqlite3VdbeSorterRewind(pC, &res);
   }else if( isMVCC(pC) ){
-    rc = SQLITE_IOERR_READ;
-    sqlite3VdbeError(p, "Scans are not implemented for MVCC! Please try again later");
-    goto abort_due_to_error;
+    if (pC->uc.mvccCursor.pScan == NULL) {
+      pC->uc.mvccCursor.pScan = MVCCScanCursorOpen(pC->uc.mvccCursor.pMVCC);
+      res = 0; // FIXME: we need to check if the table is empty and use 1 if it is
+    }
+    // FIXME: break or continue?
   }else{
     assert( pC->eCurType==CURTYPE_BTREE );
     pCrsr = pC->uc.pCursor;
@@ -6367,6 +6378,12 @@ case OP_Prev:          /* jump, ncycle */
   pC = p->apCsr[pOp->p1];
   assert( pC!=0 );
   assert( pC->deferredMoveto==0 );
+
+  if (isMVCC(pC)) {
+    sqlite3VdbeError(p, "Prev not yet implemented for MVCC cursors");
+    goto abort_due_to_error;
+  }
+
   assert( pC->eCurType==CURTYPE_BTREE );
   assert( pC->seekOp==OP_SeekLT || pC->seekOp==OP_SeekLE
        || pC->seekOp==OP_Last   || pC->seekOp==OP_IfNoHope
@@ -6382,6 +6399,13 @@ case OP_Next:          /* jump, ncycle */
   pC = p->apCsr[pOp->p1];
   assert( pC!=0 );
   assert( pC->deferredMoveto==0 );
+
+  if (isMVCC(pC)) {
+    int has_next = MVCCScanCursorNext(pC->uc.mvccCursor.pScan);
+    rc = (has_next == 1) ? SQLITE_OK : SQLITE_DONE;
+    goto next_tail;
+  }
+
   assert( pC->eCurType==CURTYPE_BTREE );
   assert( pC->seekOp==OP_SeekGT || pC->seekOp==OP_SeekGE
        || pC->seekOp==OP_Rewind || pC->seekOp==OP_Found
