@@ -70,7 +70,9 @@ typedef struct AuxData AuxData;
 struct MVCCCursor {
   MVCCDatabaseRef pMVCC;
   MVCCScanCursorRef pScan;
-  i64 rowId;
+  uint8_t *pRow;
+  int64_t szRow;
+  int64_t rowId;
 };
 typedef struct MVCCCursor MVCCCursor;
 
