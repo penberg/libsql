@@ -2863,24 +2863,38 @@ op_column_restart:
 
   if( isMVCC(pC) ){
     pDest = &aMem[pOp->p3];
-    char *mvcc_value = NULL;
-    int64_t mvcc_value_size = 0;
+    char *serialized = NULL;
+    int64_t serialized_size = 0;
     if (pC->uc.mvccCursor.pScan != NULL) {
-      rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &mvcc_value, &mvcc_value_size);
+      rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &serialized, &serialized_size);
     } else {
-      rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &mvcc_value, &mvcc_value_size);
+      rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &serialized, &serialized_size);
     }
     if (rc) goto abort_due_to_error;
-    if (mvcc_value_size >= 0) {
-      // FIXME: mvcc_value holds the serialized record, which is not necessarily a string
-      // and contains a header. It makes no sense to present it as a string in general.
-      // We should probably just deserialize it mvcc-rs-side and expose the result to C
-      // in deserialized form - type + its data.
-      sqlite3VdbeMemSetStr(pDest, mvcc_value, mvcc_value_size, SQLITE_UTF8, MVCCFreeStr);
+    if (serialized_size >= 0) {
+      u32 header_size = 0;
+      u8 *value_buf = serialized;
+
+      assert( sqlite3VdbeCheckMemInvariants(pDest) );
+      if( VdbeMemDynamic(pDest) ){
+        sqlite3VdbeMemSetNull(pDest);
+      }
+
+      value_buf += getVarint32(value_buf, header_size);
+      u32 t = value_buf[0];
+      if (t < 0x80) {
+        value_buf += 1;
+      } else {
+        value_buf += getVarint32(value_buf, t);
+      }
+      sqlite3VdbeSerialGet(value_buf, t, pDest);
+      Deephemeralize(pDest);
+      pDest->enc = SQLITE_UTF8;
     } else {
       // FIXME: if the value is not in the database, it's SeekRowid that should have returned failure
       sqlite3VdbeMemSetNull(pDest);
     }
+    MVCCFreeStr(serialized);
     goto op_column_out;
   }
 
@@ -5374,7 +5388,6 @@ notExistsWithKey:
   assert( pC->isTable );
 
   if( isMVCC(pC) ) {
-    fprintf(stderr, "Setting MVCC cursor rowid to %llu\n", iKey);
     pC->uc.mvccCursor.rowId = iKey;
     break;
   }
