@@ -6124,6 +6124,8 @@ case OP_Rowid: {                 /* out2, ncycle */
     sqlite3VtabImportErrmsg(p, pVtab);
     if( rc ) goto abort_due_to_error;
 #endif /* SQLITE_OMIT_VIRTUALTABLE */
+  }else if( isMVCC(pC) ){
+    v = MVCCScanCursorPosition(pC->uc.mvccCursor.pScan);
   }else{
     assert( pC->eCurType==CURTYPE_BTREE );
     assert( pC->uc.pCursor!=0 );
