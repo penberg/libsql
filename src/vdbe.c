@@ -434,6 +434,39 @@ static void applyAffinity(
   }
 }
 
+// deserializes nth column value from a record
+// FIXME: mvcc-rs is only capable of storing UTF-8 strings for now...
+int libsqlDeserializeColumnValue(
+  const void *pRec,               /* Pointer to buffer containing record */
+  int nRec,                       /* Size of buffer pRec in bytes */
+  int iCol,                       /* Column to extract */
+  int enc,                        /* Encoding for string conversions */
+  sqlite3_value *pMem             /* OUT: Extracted value */
+){
+  u32 t = 0;                      /* a column type code */
+  int nHdr;                       /* Size of the header in the record */
+  int iHdr;                       /* Next unread header byte */
+  int iField;                     /* Next unread data byte */
+  int szField = 0;                /* Size of the current data field */
+  int i;                          /* Column index */
+  u8 *a = (u8*)pRec;              /* Typecast byte array */
+
+  iHdr = getVarint32(a, nHdr);
+  if( nHdr>nRec || iHdr>=nHdr ) return SQLITE_CORRUPT_BKPT;
+  iField = nHdr;
+  for(i=0; i<=iCol; i++){
+    iHdr += getVarint32(&a[iHdr], t);
+    if( iHdr>nHdr ) return SQLITE_CORRUPT_BKPT;
+    szField = sqlite3VdbeSerialTypeLen(t);
+    iField += szField;
+  }
+  if( iField>nRec ) return SQLITE_CORRUPT_BKPT;
+  sqlite3VdbeSerialGet(&a[iField-szField], t, pMem);
+  if( sqlite3VdbeMemMakeWriteable(pMem) ){ return SQLITE_NOMEM_BKPT; }
+  pMem->enc = enc;
+  return SQLITE_OK;
+}
+
 /*
 ** Try to convert the type of a function argument or a result column
 ** into a numeric representation.  Use either INTEGER or REAL whichever
@@ -2872,24 +2905,7 @@ op_column_restart:
     }
     if (rc) goto abort_due_to_error;
     if (serialized_size >= 0) {
-      u32 header_size = 0;
-      u8 *value_buf = serialized;
-
-      assert( sqlite3VdbeCheckMemInvariants(pDest) );
-      if( VdbeMemDynamic(pDest) ){
-        sqlite3VdbeMemSetNull(pDest);
-      }
-
-      value_buf += getVarint32(value_buf, header_size);
-      u32 t = value_buf[0];
-      if (t < 0x80) {
-        value_buf += 1;
-      } else {
-        value_buf += getVarint32(value_buf, t);
-      }
-      sqlite3VdbeSerialGet(value_buf, t, pDest);
-      Deephemeralize(pDest);
-      pDest->enc = SQLITE_UTF8;
+      libsqlDeserializeColumnValue(serialized, serialized_size, p2, SQLITE_UTF8, pDest);
     } else {
       // FIXME: if the value is not in the database, it's SeekRowid that should have returned failure
       sqlite3VdbeMemSetNull(pDest);
