@@ -2685,6 +2685,11 @@ void sqlite3VdbeFreeCursorNN(Vdbe *p, VdbeCursor *pCx){
       if (pCx->uc.mvccCursor.pScan) {
         MVCCScanCursorClose(pCx->uc.mvccCursor.pScan);
         pCx->uc.mvccCursor.pScan = NULL;
+        if (pCx->uc.mvccCursor.pRow != NULL) {
+          MVCCFreeStr(pCx->uc.mvccCursor.pRow);
+          pCx->uc.mvccCursor.pRow = NULL;
+          pCx->uc.mvccCursor.szRow = 0;
+        }
       }
       break;
     }

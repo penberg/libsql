@@ -322,6 +322,9 @@ static VdbeCursor *allocateCursor(
   if (isMVCC(pCx)) {
     pCx->uc.mvccCursor.pMVCC = NULL;
     pCx->uc.mvccCursor.pScan = NULL;
+    pCx->uc.mvccCursor.pRow = NULL;
+    pCx->uc.mvccCursor.szRow = 0;
+    pCx->uc.mvccCursor.rowId = 0;
   }
   return pCx;
 }
@@ -465,6 +468,16 @@ int libsqlDeserializeColumnValue(
   if( sqlite3VdbeMemMakeWriteable(pMem) ){ return SQLITE_NOMEM_BKPT; }
   pMem->enc = enc;
   return SQLITE_OK;
+}
+
+void MVCCFreeStr(void *);
+
+void libsqlResetMVCCCursorCache(MVCCCursor *cursor) {
+  if (cursor->pRow != NULL) {
+    MVCCFreeStr(cursor->pRow);
+  }
+  cursor->pRow = NULL;
+  cursor->szRow = 0;
 }
 
 /*
@@ -2896,21 +2909,20 @@ op_column_restart:
 
   if( isMVCC(pC) ){
     pDest = &aMem[pOp->p3];
-    char *serialized = NULL;
-    int64_t serialized_size = 0;
-    if (pC->uc.mvccCursor.pScan != NULL) {
-      rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &serialized, &serialized_size);
-    } else {
-      rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &serialized, &serialized_size);
+    if (pC->uc.mvccCursor.pRow == NULL) {
+      if (pC->uc.mvccCursor.pScan != NULL) {
+        rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &pC->uc.mvccCursor.pRow, &pC->uc.mvccCursor.szRow);
+      } else {
+        rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &pC->uc.mvccCursor.pRow, &pC->uc.mvccCursor.szRow);
+      }
     }
     if (rc) goto abort_due_to_error;
-    if (serialized_size >= 0) {
-      libsqlDeserializeColumnValue(serialized, serialized_size, p2, SQLITE_UTF8, pDest);
+    if (pC->uc.mvccCursor.szRow >= 0) {
+      libsqlDeserializeColumnValue(pC->uc.mvccCursor.pRow, pC->uc.mvccCursor.szRow, p2, SQLITE_UTF8, pDest);
     } else {
       // FIXME: if the value is not in the database, it's SeekRowid that should have returned failure
       sqlite3VdbeMemSetNull(pDest);
     }
-    MVCCFreeStr(serialized);
     goto op_column_out;
   }
 
@@ -6317,7 +6329,7 @@ case OP_Rewind: {        /* jump, ncycle */
       pC->uc.mvccCursor.pScan = MVCCScanCursorOpen(pC->uc.mvccCursor.pMVCC);
       res = 0; // FIXME: we need to check if the table is empty and use 1 if it is
     }
-    // FIXME: break or continue?
+    libsqlResetMVCCCursorCache(&pC->uc.mvccCursor);
   }else{
     assert( pC->eCurType==CURTYPE_BTREE );
     pCrsr = pC->uc.pCursor;
@@ -6429,6 +6441,7 @@ case OP_Next:          /* jump, ncycle */
   assert( pC->deferredMoveto==0 );
 
   if (isMVCC(pC)) {
+    libsqlResetMVCCCursorCache(&pC->uc.mvccCursor);
     int has_next = MVCCScanCursorNext(pC->uc.mvccCursor.pScan);
     rc = (has_next == 1) ? SQLITE_OK : SQLITE_DONE;
     goto next_tail;
