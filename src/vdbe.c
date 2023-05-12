@@ -2913,7 +2913,7 @@ op_column_restart:
       if (pC->uc.mvccCursor.pScan != NULL) {
         rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &pC->uc.mvccCursor.pRow, &pC->uc.mvccCursor.szRow);
       } else {
-        rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.rowId, &pC->uc.mvccCursor.pRow, &pC->uc.mvccCursor.szRow);
+        rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.tableId, pC->uc.mvccCursor.rowId, &pC->uc.mvccCursor.pRow, &pC->uc.mvccCursor.szRow);
       }
     }
     if (rc) goto abort_due_to_error;
@@ -5706,7 +5706,7 @@ case OP_Insert: {
 
   if( isMVCC(pC) ) {
     pKey = &aMem[pOp->p3];
-    rc = MVCCDatabaseInsert(pC->uc.mvccCursor.pMVCC, pKey->u.i, pData->z, pData->n);
+    rc = MVCCDatabaseInsert(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.tableId, pKey->u.i, pData->z, pData->n);
     if( rc ) goto abort_due_to_error;
     break;
   }
@@ -6328,7 +6328,7 @@ case OP_Rewind: {        /* jump, ncycle */
     rc = sqlite3VdbeSorterRewind(pC, &res);
   }else if( isMVCC(pC) ){
     if (pC->uc.mvccCursor.pScan == NULL) {
-      pC->uc.mvccCursor.pScan = MVCCScanCursorOpen(pC->uc.mvccCursor.pMVCC);
+      pC->uc.mvccCursor.pScan = MVCCScanCursorOpen(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.tableId);
       // if the cursor is null, then we are at the end of the table already
       res = (pC->uc.mvccCursor.pScan == NULL) ? 1 : 0;
     }
@@ -8963,12 +8963,17 @@ case OP_ReleaseReg: {
 #endif
 
 
-/* Opcode: MVCCOpenRead * * * * *
-** Open a MVCC-backed table for writing.
+/* Opcode: MVCCOpenRead P1 P2 P3 P4 P5
+** Synopsis: root=P2 iDb=P3
+**
+** Open a MVCC-backed table for reading.
 */
 case OP_MVCCOpenRead:
   // fall-through
-/* Opcode: MVCCOpenWrite * * * * *
+
+/* Opcode: MVCCOpenWrite P1 P2 P3 P4 P5
+** Synopsis: root=P2 iDb=P3
+**
 ** Open a MVCC-backed table for writing.
 */
 case OP_MVCCOpenWrite: {
@@ -8994,6 +8999,7 @@ case OP_MVCCOpenWrite: {
 
   pCur->uc.mvccCursor.pMVCC = db->pMVCC;
   pCur->uc.mvccCursor.rowId = 0;
+  pCur->uc.mvccCursor.tableId = pCur->pgnoRoot;
   break;
 }
 
