@@ -72,7 +72,8 @@ struct MVCCCursor {
   MVCCScanCursorRef pScan;
   uint8_t *pRow;
   int64_t szRow;
-  int64_t rowId;
+  uint64_t tableId; 
+  uint64_t rowId;
 };
 typedef struct MVCCCursor MVCCCursor;
 
