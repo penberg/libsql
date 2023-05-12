@@ -6329,7 +6329,8 @@ case OP_Rewind: {        /* jump, ncycle */
   }else if( isMVCC(pC) ){
     if (pC->uc.mvccCursor.pScan == NULL) {
       pC->uc.mvccCursor.pScan = MVCCScanCursorOpen(pC->uc.mvccCursor.pMVCC);
-      res = 0; // FIXME: we need to check if the table is empty and use 1 if it is
+      // if the cursor is null, then we are at the end of the table already
+      res = (pC->uc.mvccCursor.pScan == NULL) ? 1 : 0;
     }
     libsqlResetMVCCCursorCache(&pC->uc.mvccCursor);
   }else{
