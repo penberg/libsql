@@ -2913,7 +2913,13 @@ op_column_restart:
       if (pC->uc.mvccCursor.pScan != NULL) {
         rc = MVCCScanCursorRead(pC->uc.mvccCursor.pScan, &pC->uc.mvccCursor.pRow, &pC->uc.mvccCursor.szRow);
       } else {
-        rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.tableId, pC->uc.mvccCursor.rowId, &pC->uc.mvccCursor.pRow, &pC->uc.mvccCursor.szRow);
+        Db *pDb = &p->db->aDb[pC->iDb];
+        rc = MVCCDatabaseRead(pC->uc.mvccCursor.pMVCC,
+                              pDb->mvccTxId,
+                              pC->uc.mvccCursor.tableId,
+                              pC->uc.mvccCursor.rowId,
+                              &pC->uc.mvccCursor.pRow,
+                              &pC->uc.mvccCursor.szRow);
       }
     }
     if (rc) goto abort_due_to_error;
@@ -4014,6 +4020,17 @@ case OP_Transaction: {
   pDb = &db->aDb[pOp->p1];
   pBt = pDb->pBt;
 
+  // An MVCC transaction is unconditionally started, because it's impossible to guess
+  // whether the tables that take part in an interactive transactions are mvcc or not.
+  // FIXME: this code assumes a single transaction per db connection, which is not
+  // correct in general, for MVCC. There should be a transaction set, one for
+  // each transaction that happens in a VM.
+  if (pDb->mvccTxId == 0) {
+    pDb->mvccTxId = MVCCTransactionBegin(db->pMVCC);
+  }
+
+  // FIXME: for MVCC tables, continuing with the legacy write lock is more or less unacceptable.
+  // We need something like BEGIN CONCURRENT, which was already worked on in SQLite as well.
   if( pBt ){
     rc = sqlite3BtreeBeginTrans(pBt, pOp->p2, &iMeta);
     testcase( rc==SQLITE_BUSY_SNAPSHOT );
@@ -5706,7 +5723,13 @@ case OP_Insert: {
 
   if( isMVCC(pC) ) {
     pKey = &aMem[pOp->p3];
-    rc = MVCCDatabaseInsert(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.tableId, pKey->u.i, pData->z, pData->n);
+    Db *pDb = &p->db->aDb[pC->iDb];
+    rc = MVCCDatabaseInsert(pC->uc.mvccCursor.pMVCC,
+                            pDb->mvccTxId,
+                            pC->uc.mvccCursor.tableId,
+                            pKey->u.i,
+                            pData->z,
+                            pData->n);
     if( rc ) goto abort_due_to_error;
     break;
   }
@@ -6328,7 +6351,8 @@ case OP_Rewind: {        /* jump, ncycle */
     rc = sqlite3VdbeSorterRewind(pC, &res);
   }else if( isMVCC(pC) ){
     if (pC->uc.mvccCursor.pScan == NULL) {
-      pC->uc.mvccCursor.pScan = MVCCScanCursorOpen(pC->uc.mvccCursor.pMVCC, pC->uc.mvccCursor.tableId);
+      Db *pDb = &p->db->aDb[pC->iDb];
+      pC->uc.mvccCursor.pScan = MVCCScanCursorOpen(pC->uc.mvccCursor.pMVCC, pDb->mvccTxId, pC->uc.mvccCursor.tableId);
       // if the cursor is null, then we are at the end of the table already
       res = (pC->uc.mvccCursor.pScan == NULL) ? 1 : 0;
     }

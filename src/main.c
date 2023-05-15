@@ -1443,6 +1443,17 @@ void sqlite3LeaveMutexAndCloseZombie(sqlite3 *db){
   sqlite3_free(db);
 }
 
+// FIXME: multi-db transactions for mvcc are not tested
+static void libsqlMVCCRollback(sqlite3 *db) {
+  for (int i = 0; i < db->nDb; i++) {
+    Db *pDb = &db->aDb[i];
+    if (pDb->mvccTxId != 0) {
+      MVCCTransactionRollback(db->pMVCC, pDb->mvccTxId);
+      pDb->mvccTxId = 0;
+    }
+  }
+}
+
 /*
 ** Rollback all database files.  If tripCode is not SQLITE_OK, then
 ** any write cursors are invalidated ("tripped" - as in "tripping a circuit
@@ -1456,6 +1467,8 @@ void sqlite3RollbackAll(sqlite3 *db, int tripCode){
   int schemaChange;
   assert( sqlite3_mutex_held(db->mutex) );
   sqlite3BeginBenignMalloc();
+
+  libsqlMVCCRollback(db);
 
   /* Obtain all b-tree mutexes before making any calls to BtreeRollback(). 
   ** This is important in case the transaction being rolled back has
