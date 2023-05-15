@@ -2682,14 +2682,16 @@ void sqlite3VdbeFreeCursorNN(Vdbe *p, VdbeCursor *pCx){
     }
     case CURTYPE_MVCC: {
       assert( pCx->uc.mvccCursor.pMVCC!=0 );
+      // Finalizing a scan:
       if (pCx->uc.mvccCursor.pScan) {
         MVCCScanCursorClose(pCx->uc.mvccCursor.pScan);
         pCx->uc.mvccCursor.pScan = NULL;
-        if (pCx->uc.mvccCursor.pRow != NULL) {
-          MVCCFreeStr(pCx->uc.mvccCursor.pRow);
-          pCx->uc.mvccCursor.pRow = NULL;
-          pCx->uc.mvccCursor.szRow = 0;
-        }
+      }
+      // Freeing the cached row:
+      if (pCx->uc.mvccCursor.pRow != NULL) {
+        MVCCFreeStr(pCx->uc.mvccCursor.pRow);
+        pCx->uc.mvccCursor.pRow = NULL;
+        pCx->uc.mvccCursor.szRow = 0;
       }
       break;
     }
@@ -2826,6 +2828,17 @@ int sqlite3VdbeSetColName(
   return rc;
 }
 
+// FIXME: multi-db transactions for mvcc are not tested
+void libsqlMVCCCommit(sqlite3 *db) {
+  for (int i = 0; i < db->nDb; i++) {
+    Db *pDb = &db->aDb[i];
+    if (pDb->mvccTxId != 0) {
+      MVCCTransactionCommit(db->pMVCC, pDb->mvccTxId);
+      pDb->mvccTxId = 0;
+    }
+  }
+}
+
 /*
 ** A read or write transaction may or may not be active on database handle
 ** db. If a transaction is active, commit it. If there is a
@@ -2839,6 +2852,8 @@ static int vdbeCommit(sqlite3 *db, Vdbe *p){
                    ** super-journal */
   int rc = SQLITE_OK;
   int needXcommit = 0;
+
+  libsqlMVCCCommit(db);
 
 #ifdef SQLITE_OMIT_VIRTUALTABLE
   /* With this option, sqlite3VtabSync() is defined to be simply 

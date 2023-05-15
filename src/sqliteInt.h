@@ -1382,6 +1382,7 @@ struct Db {
   u8 safety_level;     /* How aggressive at syncing data to disk */
   u8 bSyncSet;         /* True if "PRAGMA synchronous=N" has been run */
   Schema *pSchema;     /* Pointer to database schema (possibly shared) */
+  u64 mvccTxId;        /* MVCC transaction id for the current session; TODO: find a right place for it */
 };
 
 /*
