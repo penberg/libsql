@@ -834,7 +834,7 @@ liblibsql_wasm:	$(WBSRC)
 	cd $(WBTOP) && cargo build --release --lib && mkdir -p $(TOP)/.libs && cp target/release/liblibsql_wasm.* $(TOP)/.libs/
 
 libmvcc_c:	$(MVCCRSSRC)
-	cd $(MVCCRSTOP) && cargo build -F c_bindings --release --lib && mkdir -p $(TOP)/.libs && cp target/release/libmvcc_c.* $(TOP)/.libs/
+	cd $(MVCCRSTOP) && cargo build $(EXTRA_MVCCRS_FLAGS) --release --lib && mkdir -p $(TOP)/.libs && cp target/release/libmvcc_c.* $(TOP)/.libs/
 
 sqlite3.c:	.target_source $(TOP)/tool/mksqlite3c.tcl $(MVCCRS_TARGET)
 	$(TCLSH_CMD) $(TOP)/tool/mksqlite3c.tcl $(AMALGAMATION_LINE_MACROS)
