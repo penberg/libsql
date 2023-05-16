@@ -3568,9 +3568,10 @@ static int openDatabase(
   sqlite3_wal_autocheckpoint(db, SQLITE_DEFAULT_WAL_AUTOCHECKPOINT);
 
   // MVCC initialization
-  char *mvcc_path = sqlite3_mprintf("%s-mvcc", zFilename);
-  db->pMVCC = MVCCDatabaseOpen(mvcc_path);
-  sqlite3_free(mvcc_path);
+  db->pMVCC = MVCCDatabaseOpen(zFilename);
+  if (!db->pMVCC) {
+    sqlite3ErrorWithMsg(db, SQLITE_CANTOPEN, "Failed to open the MVCC database");
+  }
 
 opendb_out:
   if( db ){
