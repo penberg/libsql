@@ -1,4 +1,4 @@
-use crate::{Database, Error, Params, Result, Rows, RowsFuture, Statement};
+use crate::{Database, Error, Params, Result, Rows, RowsFuture, Statement, Transaction};
 
 use libsql_sys::ffi;
 use std::ffi::c_int;
@@ -101,6 +101,10 @@ impl Connection {
             sql: sql.into(),
             params: params.into(),
         }
+    }
+
+    pub fn transaction(&self) -> Result<Transaction> {
+        Transaction::begin(self.clone())
     }
 
     pub fn is_autocommit(&self) -> bool {
