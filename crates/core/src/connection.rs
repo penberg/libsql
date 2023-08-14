@@ -57,8 +57,8 @@ impl Connection {
     }
 
     /// Prepare the SQL statement.
-    pub fn prepare<S: Into<String>>(&self, sql: S) -> Result<Statement> {
-        Statement::prepare(self.clone(), self.raw, sql.into().as_str())
+    pub fn prepare<'a, S: Into<String>>(&'a self, sql: S) -> Result<Statement<'a>> {
+        Statement::prepare(self, self.raw, sql.into().as_str())
     }
 
     /// Convenience method to run a prepared statement query.
@@ -75,7 +75,7 @@ impl Connection {
         S: Into<String>,
         P: Into<Params>,
     {
-        let stmt = Statement::prepare(self.clone(), self.raw, sql.into().as_str())?;
+        let stmt = Statement::prepare(self, self.raw, sql.into().as_str())?;
         let params = params.into();
         let ret = stmt.query(&params)?;
         Ok(Some(ret))
@@ -136,7 +136,7 @@ impl Connection {
         S: Into<String>,
         P: Into<Params>,
     {
-        let stmt = Statement::prepare(self.clone(), self.raw, sql.into().as_str())?;
+        let stmt = Statement::prepare(self, self.raw, sql.into().as_str())?;
         let params = params.into();
         stmt.execute(&params)
     }
