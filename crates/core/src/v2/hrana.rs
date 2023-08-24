@@ -346,7 +346,9 @@ pub struct Rows {
 }
 
 impl RowsInner for Rows {
-    fn next(&mut self) -> Result<Option<super::Row>> {
+    fn next(&self) -> Result<Option<super::Row>> {
+        todo!();
+/*
         let row = match self.rows.pop() {
             Some(row) => Row {
                 cols: self.cols.clone(),
@@ -358,6 +360,7 @@ impl RowsInner for Rows {
         Ok(Some(super::Row {
             inner: Box::new(row),
         }))
+*/
     }
 }
 

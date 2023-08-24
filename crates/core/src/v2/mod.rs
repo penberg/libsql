@@ -96,6 +96,9 @@ impl Database {
             }
         }
     }
+
+    pub fn close(&self) {
+    }
 }
 
 #[async_trait::async_trait]
