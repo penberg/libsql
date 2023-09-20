@@ -284,15 +284,24 @@ impl Stmt for RemoteStatement {
     fn reset(&mut self) {}
 
     fn parameter_count(&self) -> usize {
-        todo!()
+        if let Some(stmt) = &self.local_statement {
+            return stmt.parameter_count();
+        }
+        todo!();   
     }
 
-    fn parameter_name(&self, _idx: i32) -> Option<&str> {
-        todo!()
+    fn parameter_name(&self, idx: i32) -> Option<&str> {
+        if let Some(stmt) = &self.local_statement {
+            return stmt.parameter_name(idx);
+        }
+        todo!();
     }
 
     fn columns(&self) -> Vec<Column> {
-        todo!()
+        if let Some(stmt) = &self.local_statement {
+            return stmt.columns();
+        }
+        todo!();
     }
 }
 
