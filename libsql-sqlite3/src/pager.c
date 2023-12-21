@@ -2428,7 +2428,10 @@ static int pager_playback_one_page(
     ** is if the data was just read from an in-memory sub-journal. In that
     ** case it must be encrypted here before it is copied into the database
     ** file.  */
-    rc = sqlite3OsWrite(pPager->fd, (u8 *)aData, pPager->pageSize, ofst);
+    void *zTmp = sqlite3Malloc(pPager->pageSize);
+    libsql_page_prepare_write(pPager->fd, pgno, (u8 *)aData, pPager->pageSize, ofst, zTmp);
+    rc = sqlite3OsWrite(pPager->fd, (u8 *)zTmp, pPager->pageSize, ofst);
+    sqlite3_free(zTmp);
 
     if( pgno>pPager->dbFileSize ){
       pPager->dbFileSize = pgno;
@@ -2675,7 +2678,11 @@ static int pager_truncate(Pager *pPager, Pgno nPage){
         testcase( (newSize-szPage) == currentSize );
         testcase( (newSize-szPage) >  currentSize );
         sqlite3OsFileControlHint(pPager->fd, SQLITE_FCNTL_SIZE_HINT, &newSize);
-        rc = sqlite3OsWrite(pPager->fd, pTmp, szPage, newSize-szPage);
+        i64 offset = newSize-szPage;
+        void *zTmp = sqlite3Malloc(pPager->pageSize);
+        libsql_page_prepare_write(pPager->fd, nPage, pTmp, szPage, offset, zTmp);
+        rc = sqlite3OsWrite(pPager->fd, zTmp, szPage, offset);
+        sqlite3_free(zTmp);
       }
       if( rc==SQLITE_OK ){
         pPager->dbFileSize = nPage;
@@ -3040,6 +3047,7 @@ static int readDbPage(PgHdr *pPg){
     if( rc==SQLITE_IOERR_SHORT_READ ){
       rc = SQLITE_OK;
     }
+    libsql_page_finish_read(pPager->fd, pPg->pgno, pPg->pData, pPager->pageSize, iOffset);
   }
 
   if( pPg->pgno==1 ){
@@ -3900,6 +3908,7 @@ int sqlite3PagerReadFileheader(Pager *pPager, int N, unsigned char *pDest){
     if( rc==SQLITE_IOERR_SHORT_READ ){
       rc = SQLITE_OK;
     }
+    libsql_page_finish_read(pPager->fd, 1, pDest, N, 0);
   }
   return rc;
 }
@@ -4468,7 +4477,10 @@ static int pager_write_pagelist(Pager *pPager, PgHdr *pList){
       pData = pList->pData;
 
       /* Write out the page data. */
-      rc = sqlite3OsWrite(pPager->fd, pData, pPager->pageSize, offset);
+      void *zTmp = sqlite3Malloc(pPager->pageSize);
+      libsql_page_prepare_write(pPager->fd, pgno, pData, pPager->pageSize, offset, zTmp);
+      rc = sqlite3OsWrite(pPager->fd, zTmp, pPager->pageSize, offset);
+      sqlite3_free(zTmp);
 
       /* If page 1 was just written, update Pager.dbFileVers to match
       ** the value now stored in the database file. If writing this
@@ -6347,7 +6359,10 @@ static int pager_incr_changecounter(Pager *pPager, int isDirectMode){
         assert( pPager->dbFileSize>0 );
         zBuf = pPgHdr->pData;
         if( rc==SQLITE_OK ){
-          rc = sqlite3OsWrite(pPager->fd, zBuf, pPager->pageSize, 0);
+          void *zTmp = sqlite3Malloc(pPager->pageSize);
+          libsql_page_prepare_write(pPager->fd, 1, zBuf, pPager->pageSize, 0, zTmp);
+          rc = sqlite3OsWrite(pPager->fd, zTmp, pPager->pageSize, 0);
+          sqlite3_free(zTmp);
           pPager->aStat[PAGER_STAT_WRITE]++;
         }
         if( rc==SQLITE_OK ){
@@ -6601,8 +6616,11 @@ int sqlite3PagerCommitPhaseOne(
             char *pTmp = pPager->pTmpSpace;
             int szPage = (int)pPager->pageSize;
             memset(pTmp, 0, szPage);
-            rc = sqlite3OsWrite(pPager->fd, pTmp, szPage,
-                      ((i64)pPager->dbSize*pPager->pageSize)-szPage);
+            i64 offset = ((i64)pPager->dbSize*pPager->pageSize)-szPage;
+            void *zTmp = sqlite3Malloc(pPager->pageSize);
+            libsql_page_prepare_write(fd, pPager->dbSize, pTmp, szPage, offset, zTmp);
+            rc = sqlite3OsWrite(pPager->fd, zTmp, szPage, offset);
+            sqlite3_free(zTmp);
           }
           if( rc==SQLITE_OK ){
             rc = sqlite3OsFileControl(fd, SQLITE_FCNTL_COMMIT_ATOMIC_WRITE, 0);

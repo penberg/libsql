@@ -10,7 +10,7 @@ async fn main() {
 
         Database::open_remote(url, token).unwrap()
     } else {
-        Database::open_in_memory().unwrap()
+        Database::open("local.db").unwrap()
     };
 
     let conn = db.connect().unwrap();

@@ -85,9 +85,40 @@ void sqlite3OsClose(sqlite3_file *pId){
     pId->pMethods = 0;
   }
 }
+#define SECRET_KEY 0x01
 int sqlite3OsRead(sqlite3_file *id, void *pBuf, int amt, i64 offset){
+  printf("sqlite3OsRead: %d bytes at offset %lld\n", amt, offset);
   DO_OS_MALLOC_TEST(id);
   return id->pMethods->xRead(id, pBuf, amt, offset);
+}
+void libsql_page_finish_read(sqlite3_file *id, Pgno pgno, const void *pBuf, int amt, i64 offset){
+  printf("FINISH READ: page=%d -- %d bytes at offset %lld\n", pgno, amt, offset);  
+  // keep header unencrypted
+  int start = 0;
+  if (pgno == 1) {
+    start += 100;    
+  }
+  unsigned char *buf = pBuf;
+  for (int i = start; i < amt; i++) {
+    buf[i] ^= SECRET_KEY;
+  }
+}
+void libsql_page_prepare_write(sqlite3_file *id, Pgno pgno, const void *pSrc, int amt, i64 offset, const void *pDest){
+  printf("PREPARE WRITE: page=%d -- %d bytes at offset %lld\n", pgno, amt, offset);
+  // keep header unencrypted
+  int start = 0;
+  if (pgno == 1) {
+    start += 100;
+  }
+  unsigned char *src = pSrc;
+  unsigned char *dst = pDest;
+  for (int i = 0; i < amt; i++) {
+    if (i < start) {
+      dst[i] = src[i];
+    } else {
+      dst[i] = src[i] ^ SECRET_KEY;
+    }
+  }
 }
 int sqlite3OsWrite(sqlite3_file *id, const void *pBuf, int amt, i64 offset){
   DO_OS_MALLOC_TEST(id);
