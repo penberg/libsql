@@ -1448,11 +1448,15 @@ paren_exprlist(A) ::= LP exprlist(X) RP.  {A = X;}
 
 ///////////////////////////// The CREATE INDEX command ///////////////////////
 //
-cmd ::= createkw(S) uniqueflag(U) INDEX ifnotexists(NE) nm(X) dbnm(D)
+cmd ::= createkw(S) uniqueflag(U) INDEX ifnotexists(NE) nm(X) dbnm(D) indextype(T)
         ON nm(Y) LP sortlist(Z) RP where_opt(W). {
+  u8 idxType = SQLITE_IDXTYPE_APPDEF;
+  if( T.pUsing!=0 ){
+    idxType = SQLITE_IDXTYPE_VECTOR;
+  }
   sqlite3CreateIndex(pParse, &X, &D, 
                      sqlite3SrcListAppend(pParse,0,&Y,0), Z, U,
-                      &S, W, SQLITE_SO_ASC, NE, SQLITE_IDXTYPE_APPDEF);
+                      &S, W, SQLITE_SO_ASC, NE, idxType);
   if( IN_RENAME_OBJECT && pParse->pNewIndex ){
     sqlite3RenameTokenMap(pParse, pParse->pNewIndex->zName, &Y);
   }
@@ -1462,6 +1466,9 @@ cmd ::= createkw(S) uniqueflag(U) INDEX ifnotexists(NE) nm(X) dbnm(D)
 uniqueflag(A) ::= UNIQUE.  {A = OE_Abort;}
 uniqueflag(A) ::= .        {A = OE_None;}
 
+%type indextype {OnOrUsing}
+indextype(T) ::= USING idlist(L). {T.pOn = 0; T.pUsing = L;}
+indextype(T) ::= .                {T.pOn = 0; T.pUsing = 0;}
 
 // The eidlist non-terminal (Expression Id List) generates an ExprList
 // from a list of identifiers.  The identifier names are in ExprList.a[].zName.
