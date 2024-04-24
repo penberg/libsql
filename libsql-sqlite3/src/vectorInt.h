@@ -13,6 +13,9 @@ typedef struct DiskAnnIndex DiskAnnIndex;
 
 #define MAX_VECTOR_SZ 16000
 
+typedef u16 VectorType;
+typedef u32 VectorDims;
+
 #define VECTOR_TYPE_FLOAT32 0
 
 #define VECTOR_FLAGS_STATIC 1
@@ -22,15 +25,14 @@ typedef struct DiskAnnIndex DiskAnnIndex;
 /* An instance of this object represents a vector.
 */
 struct Vector {
-  u16 type;       /* Type of vector */
-  u16 flags;      /* Vector flags */
-  u32 dims;       /* Number of dimensions */
-  void *data;     /* Vector data */
+  VectorType type;  /* Type of vector */
+  u16 flags;        /* Vector flags */
+  VectorDims dims;  /* Number of dimensions */
+  void *data;       /* Vector data */
 };
 
-size_t vectorDataSize(Vector *);
-size_t vectorElemSize(u16);
-Vector *vectorAlloc(u16, u32);
+size_t vectorDataSize(VectorType, VectorDims);
+Vector *vectorAlloc(VectorType, VectorDims);
 void vectorFree(Vector *v);
 int vectorParse(sqlite3_value *, Vector *, char **);
 size_t vectorSerializeToBlob(Vector *, unsigned char *, size_t);
