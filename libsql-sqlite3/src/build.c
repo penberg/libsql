@@ -4258,6 +4258,12 @@ void sqlite3CreateIndex(
     pIndex->aSortOrder[i] = (u8)requestedSortOrder;
   }
 
+  if( idxType==SQLITE_IDXTYPE_VECTOR ){
+    if( vectorIndexCreate(pParse, pIndex)< 0){
+      goto exit_create_index;
+    }
+  }
+
   /* Append the table key to the end of the index.  For WITHOUT ROWID
   ** tables (when pPk!=0) this will be the declared PRIMARY KEY.  For
   ** normal tables (when pPk==0) this will be the rowid.
