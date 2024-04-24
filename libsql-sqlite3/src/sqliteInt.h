@@ -2042,6 +2042,8 @@ struct FuncDestructor {
 #define SQLITE_FUNC_BUILTIN  0x00800000 /* This is a built-in function */
 #define SQLITE_FUNC_ANYORDER 0x08000000 /* count/min/max aggregate */
 
+#define SQLITE_FUNC_VECTOR   0x10000000 /* This is a vector distance function. */
+
 /* Identifier numbers for each in-line function */
 #define INLINEFUNC_coalesce             0
 #define INLINEFUNC_implies_nonnull_row  1
@@ -2169,6 +2171,10 @@ struct FuncDestructor {
   {nArg, SQLITE_FUNC_BUILTIN|\
    SQLITE_FUNC_INTERNAL|SQLITE_UTF8|SQLITE_FUNC_CONSTANT, \
    0, 0, xFunc, 0, 0, 0, #zName, {0} }
+#define VECTOR_FUNCTION(zName, nArg, iArg, bNC, xFunc) \
+  {nArg, SQLITE_FUNC_BUILTIN|\
+   SQLITE_FUNC_VECTOR|SQLITE_UTF8|(bNC*SQLITE_FUNC_NEEDCOLL), \
+   SQLITE_INT_TO_PTR(iArg), 0, xFunc, 0, 0, 0, #zName, {0} }
 
 
 /*
