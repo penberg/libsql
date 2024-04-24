@@ -4195,6 +4195,35 @@ case OP_SetCookie: {
   break;
 }
 
+/* Opcode: OpenVectorIdx
+** Synopsis: root=P2 iDb=P3
+*/
+case OP_OpenVectorIdx: {
+  // TODO: Can we simplify this similar to OP_SorterOpen?
+  KeyInfo *pKeyInfo = 0;
+  Index *pIdx;
+  int nField = 0;
+  if( pOp->p4type==P4_KEYINFO ){
+    pKeyInfo = pOp->p4.pKeyInfo;
+    assert( pKeyInfo->enc==ENC(db) );
+    assert( pKeyInfo->db==db );
+    nField = pKeyInfo->nAllField;
+  }else if( pOp->p4type==P4_INT32 ){
+    nField = pOp->p4.i;
+  }
+  VdbeCursor *pCur = allocateCursor(p, pOp->p1, nField, CURTYPE_VECTOR_IDX);
+  if( pCur==0 ) goto no_mem;
+  pCur->iDb = pOp->p3;
+  pCur->nullRow = 1;
+  pCur->isOrdered = 1;
+  pCur->pgnoRoot = pOp->p2;
+  pCur->pKeyInfo = 0;
+  pCur->isTable = 0;
+  rc = vectorIndexCursorInit(db, pCur, pKeyInfo->zIndexName);
+  if( rc ) goto abort_due_to_error;
+  break;
+}
+
 /* Opcode: OpenRead P1 P2 P3 P4 P5
 ** Synopsis: root=P2 iDb=P3
 **
@@ -6505,6 +6534,17 @@ case OP_IdxInsert: {        /* in2 */
   assert( (pIn2->flags & MEM_Blob) || (pOp->p5 & OPFLAG_PREFORMAT) );
   if( pOp->p5 & OPFLAG_NCHANGE ) p->nChange++;
   if (!pC->isEphemeral) p->aLibsqlCounter[LIBSQL_STMTSTATUS_ROWS_WRITTEN - LIBSQL_STMTSTATUS_BASE]++;
+  if( isVectorIdx(pC) ) {
+    rc = ExpandBlob(pIn2);
+    if( rc ) goto abort_due_to_error;
+    x.nKey = pIn2->n;
+    x.pKey = pIn2->z;
+    x.aMem = aMem + pOp->p3;
+    x.nMem = (u16)pOp->p4.i;
+    rc = vectorIndexInsert(pC->uc.pVecIdx, &x);
+    if( rc ) goto abort_due_to_error;
+    break;
+  }
   assert( pC->eCurType==CURTYPE_BTREE );
   assert( pC->isTable==0 );
   rc = ExpandBlob(pIn2);
