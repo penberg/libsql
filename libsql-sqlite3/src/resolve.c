@@ -1108,6 +1108,9 @@ static int resolveExprStep(Walker *pWalker, Expr *pExpr){
           ** This allows them to be factored out of inner loops. */
           ExprSetProperty(pExpr,EP_ConstFunc);
         }
+        if( pDef->funcFlags & SQLITE_FUNC_VECTOR ){
+          ExprSetProperty(pExpr,EP_VecFunc);
+        }
         if( (pDef->funcFlags & SQLITE_FUNC_CONSTANT)==0 ){
           /* Clearly non-deterministic functions like random(), but also
           ** date/time functions that use 'now', and other functions like

@@ -3308,6 +3308,10 @@ static int indexMightHelpWithOrderBy(
   for(ii=0; ii<pOB->nExpr; ii++){
     Expr *pExpr = sqlite3ExprSkipCollateAndLikely(pOB->a[ii].pExpr);
     if( NEVER(pExpr==0) ) continue;
+    if( ExprHasProperty(pExpr, EP_VecFunc) ){
+      printf("Detected vector distance in ORDER BY clause '%s'.\n", pExpr->u.zToken);
+      return 1;
+    }
     if( pExpr->op==TK_COLUMN && pExpr->iTable==iCursor ){
       if( pExpr->iColumn<0 ) return 1;
       for(jj=0; jj<pIndex->nKeyCol; jj++){

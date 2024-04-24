@@ -3096,6 +3096,7 @@ struct Expr {
 #define EP_IsFalse  0x20000000 /* Always has boolean value of FALSE */
 #define EP_FromDDL  0x40000000 /* Originates from sqlite_schema */
                /*   0x80000000 // Available */
+#define EP_VecFunc  0x80000000 /* Vector distance function */
 
 /* The EP_Propagate mask is a set of properties that automatically propagate
 ** upwards into parent nodes.
