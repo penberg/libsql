@@ -57,7 +57,7 @@ typedef struct VectorNode VectorNode;
 /**
 ** The block size in bytes.
 **/
-#define DISKANN_BLOCK_SIZE 4096
+#define DISKANN_BLOCK_SIZE 65536
 
 /**
 ** The bit shift to get the block size in bytes.
@@ -86,7 +86,7 @@ struct VectorMetadata {
 };
 
 struct VectorNode {
-  Vector vec;
+  Vector *vec;
   u64 id;
   u64 offset;
   int visited;                    /* Is this node visited? */
@@ -103,6 +103,7 @@ static VectorNode *vectorNodeNew(u64 id, u16 nNeighbours){
   VectorNode *pNode;
   pNode = sqlite3_malloc(sizeof(VectorNode) + nNeighbours * sizeof(VectorMetadata));
   if( pNode ){
+    pNode->vec = NULL;
     pNode->id = id;
     pNode->nNeighbours = nNeighbours;
     pNode->visited = 0;
@@ -112,7 +113,7 @@ static VectorNode *vectorNodeNew(u64 id, u16 nNeighbours){
 }
 
 static void vectorNodeFree(VectorNode *pNode){
-  sqlite3_free(pNode->vec.data);
+  vectorFree(pNode->vec);
   sqlite3_free(pNode);
 }
 
@@ -128,8 +129,7 @@ static unsigned int blockSize(DiskAnnIndex *pIndex){
 }
 
 static unsigned int vectorSize(DiskAnnIndex *pIndex){
-  assert( pIndex->header.nVectorType == VECTOR_TYPE_F32 );
-  return sizeof(u32) + pIndex->header.nVectorDims * sizeof(float);
+  return sizeof(u32) + pIndex->header.nVectorDims * vectorElemSize(VECTOR_TYPE_F32);
 }
 
 static int neighbourMetadataOffset(DiskAnnIndex *pIndex){
@@ -200,14 +200,12 @@ static VectorNode *diskAnnReadVector(
     return NULL;
   }
   pNode->offset = offset;
-  pNode->vec.type = pIndex->header.nVectorType;
-  pNode->vec.len = pIndex->header.nVectorDims;
-  pNode->vec.data = sqlite3_malloc(pNode->vec.len * sizeof(float));
-  if( pNode->vec.data == NULL ){
+  pNode->vec = vectorAlloc(pIndex->header.nVectorDims, pIndex->header.nVectorType);
+  if( pNode->vec==NULL ){
     vectorNodeFree(pNode);
     return NULL;
   }
-  vectorDeserializeFromBlob(&pNode->vec, blockData+off, DISKANN_BLOCK_SIZE);
+  vectorDeserializeFromBlob(pNode->vec, blockData+off, DISKANN_BLOCK_SIZE);
   off = neighbourMetadataOffset(pIndex);
   for( int i = 0; i < nNeighbours; i++ ){
     pNode->aNeighbours[i].id = (u64) blockData[off+0]
@@ -387,7 +385,7 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
   }
   // If the node is closer to the query than the farthest candidate, insert it.
   for( int n = 0; n < pCtx->nCandidates; n++ ){
-    if( vectorDistanceCos(pCtx->pQuery, &pNode->vec) < vectorDistanceCos(pCtx->pQuery, &pCtx->aCandidates[n]->vec) ){
+    if( vectorDistanceCos(pCtx->pQuery, pNode->vec) < vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[n]->vec) ){
       if( pCtx->nCandidates < pCtx->maxCandidates ){
         pCtx->nCandidates++;
       }
@@ -410,7 +408,7 @@ static VectorNode* findClosestCandidate(SearchContext *pCtx){
   VectorNode *pNode = NULL;
   for (int i = 0; i < pCtx->nCandidates; i++) {
     if( !pCtx->aCandidates[i]->visited ){
-      if( pNode==NULL || vectorDistanceCos(pCtx->pQuery, &pCtx->aCandidates[i]->vec) < vectorDistanceCos(pCtx->pQuery, &pNode->vec) ){
+      if( pNode==NULL || vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[i]->vec) < vectorDistanceCos(pCtx->pQuery, pNode->vec) ){
         pNode = pCtx->aCandidates[i];
       }
     }
@@ -506,7 +504,7 @@ int diskAnnInsert(
   initSearchContext(&ctx, pVec, 10); // TODO: Fix hard-coded L
   diskAnnSearchInternal(pIndex, &ctx);
   for( VectorNode *pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
-    aNeighbours[nNeighbours] = &pVisited->vec;
+    aNeighbours[nNeighbours] = pVisited->vec;
     aNeighbourMetadata[nNeighbours].id = pVisited->id;
     aNeighbourMetadata[nNeighbours].offset = pVisited->offset;
     nNeighbours++;
