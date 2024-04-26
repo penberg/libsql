@@ -282,9 +282,9 @@ static int diskAnnWriteVector(
   }
   rc = sqlite3OsWrite(pIndex->pFd, blockData, nBlockSize, pIndex->nFileSize);
   if( rc != SQLITE_OK ){
-    return rc;
+    return -1;
   }
-  return rc;
+  return nBlockSize;
 }
 
 /**
@@ -490,6 +490,7 @@ int diskAnnInsert(
   VectorMetadata aNeighbourMetadata[MAX_NEIGHBOURS];
   VectorNode *pNode;
   SearchContext ctx;
+  unsigned int nWritten;
 
   pNode = vectorNodeNew(id, nNeighbours);
   if( pNode==NULL ){
@@ -510,9 +511,14 @@ int diskAnnInsert(
   }
 
   nBlockSize = blockSize(pIndex);
-  pIndex->nFileSize += diskAnnWriteVector(pIndex, pVec, id, aNeighbours, aNeighbourMetadata, nNeighbours, pNode->offset, nBlockSize);
+  nWritten = diskAnnWriteVector(pIndex, pVec, id, aNeighbours, aNeighbourMetadata, nNeighbours, pNode->offset, nBlockSize);
 
   deinitSearchContext(&ctx);
+
+  if( nWritten<0 ){
+    return SQLITE_ERROR;
+  }
+  pIndex->nFileSize += nWritten;
 
   if( pIndex->header.entryVectorOffset == 0 ){
     // TODO: We actually want the entry to be random, but let's start with the first one.
