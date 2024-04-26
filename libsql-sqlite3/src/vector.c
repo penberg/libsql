@@ -54,6 +54,7 @@ static void vectorInit(Vector *p, u32 type, void *data, unsigned int len){
   p->data = data;
   p->type = type;
   p->len = len;
+  p->flags = 0;
 }
 
 /**
