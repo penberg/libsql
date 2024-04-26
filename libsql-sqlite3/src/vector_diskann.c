@@ -490,11 +490,12 @@ int diskAnnInsert(
 ){
   unsigned int nNeighbours = 0;
   unsigned int nBlockSize;
-  Vector *aNeighbours[MAX_NEIGHBOURS]; 
+  Vector *aNeighbours[MAX_NEIGHBOURS];
   VectorMetadata aNeighbourMetadata[MAX_NEIGHBOURS];
+  unsigned int nWritten;
+  int rc = SQLITE_OK;
   VectorNode *pNode;
   SearchContext ctx;
-  unsigned int nWritten;
 
   pNode = vectorNodeNew(id, nNeighbours);
   if( pNode==NULL ){
@@ -520,7 +521,8 @@ int diskAnnInsert(
   deinitSearchContext(&ctx);
 
   if( nWritten<0 ){
-    return SQLITE_ERROR;
+    rc = SQLITE_ERROR;
+    goto out;
   }
   pIndex->nFileSize += nWritten;
 
@@ -529,7 +531,9 @@ int diskAnnInsert(
     pIndex->header.entryVectorOffset = pNode->offset;
     diskAnnWriteHeader(pIndex->pFd, &pIndex->header);
   }
-  return SQLITE_OK;
+out:
+  vectorNodeFree(pNode);
+  return rc;
 }
 
 /**************************************************************************
