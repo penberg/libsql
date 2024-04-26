@@ -141,6 +141,7 @@ static int neighbourMetadataOffset(DiskAnnIndex *pIndex){
   nVectorSize = vectorSize(pIndex);
   nNeighbourVectorSize = vectorSize(pIndex);
   maxNeighbours = (nBlockSize - nVectorSize - VECTOR_METADATA_SIZE) / (nNeighbourVectorSize + NEIGHBOUR_METADATA_SIZE);
+  assert( maxNeigbours > 0);
   return nVectorSize + VECTOR_METADATA_SIZE + maxNeighbours * (nNeighbourVectorSize); 
 }
 
@@ -257,10 +258,10 @@ static int diskAnnWriteVector(
   /* nNeighbours */
   blockData[off++] = nNeighbours;
   blockData[off++] = nNeighbours >> 8;
-  off += vectorSerializeToBlob(pVec, (void*)blockData+off, DISKANN_BLOCK_SIZE);
-  for (int i = 0; i < nNeighbours; i++) {
-    off += vectorSerializeToBlob(aNeighbours[i], (void*)blockData+off, DISKANN_BLOCK_SIZE);
-  }
+//  off += vectorSerializeToBlob(pVec, (void*)blockData+off, DISKANN_BLOCK_SIZE);
+//  for (int i = 0; i < nNeighbours; i++) {
+//    off += vectorSerializeToBlob(aNeighbours[i], (void*)blockData+off, DISKANN_BLOCK_SIZE);
+//  }
   off = neighbourMetadataOffset(pIndex);
   for( int i = 0; i < nNeighbours; i++ ){
     blockData[off++] = aNeighbourMetadata[i].id;
