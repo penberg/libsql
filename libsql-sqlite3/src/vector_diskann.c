@@ -361,8 +361,13 @@ static void initSearchContext(SearchContext *pCtx, Vector* pQuery, unsigned int 
 }
 
 static void deinitSearchContext(SearchContext *pCtx){
-  for( VectorNode *pNode = pCtx->visitedList; pNode!=NULL; pNode = pNode->pNext ){
+  VectorNode *pNode, *pNext;
+
+  pNode = pCtx->visitedList;
+  while( pNode!=NULL ){
+    pNext = pNode->pNext;
     vectorNodeFree(pNode);
+    pNode = pNext;
   }
   sqlite3_free(pCtx->aCandidates);
 }
