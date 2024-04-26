@@ -90,6 +90,9 @@ static Vector *vectorContextAlloc(sqlite3_context *pCtx, u32 type){
 ** Free a Vector object and its data buffer allocated, unless the vector is static.
 **/
 void vectorFree(Vector *p){
+  if( p==0 ){
+    return;
+  }
   if( p->flags & VECTOR_FLAGS_STATIC ){
     return;
   }
