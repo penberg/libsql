@@ -26,6 +26,9 @@ struct Vector {
   void *data;
 };
 
+size_t vectorElemSize(u16);
+Vector *vectorAlloc(u16, u32);
+void vectorFree(Vector *v);
 int vectorParse(sqlite3_value *, Vector *, char **);
 size_t vectorSerializeToBlob(Vector *, unsigned char *, size_t);
 size_t vectorDeserializeFromBlob(Vector *, const unsigned char *, size_t);

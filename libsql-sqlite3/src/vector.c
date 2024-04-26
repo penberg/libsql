@@ -36,6 +36,17 @@
 ** Utility routines for dealing with Vector objects
 **************************************************************************/
 
+size_t vectorElemSize(u16 type){
+  switch (type) {
+    case VECTOR_TYPE_F32:
+      return sizeof(float);
+    default:
+      assert(0);
+  }
+  return 0;
+}
+
+
 /*
 ** Initialize the Vector object
 */
@@ -43,6 +54,20 @@ static void vectorInit(Vector *p, u32 type, void *data, unsigned int len){
   p->data = data;
   p->type = type;
   p->len = len;
+}
+
+/**
+** Allocate a Vector object and its data buffer.
+**/
+Vector *vectorAlloc(u16 type, u32 len){
+  void *p;
+
+  p = sqlite3_malloc(sizeof(Vector) + vectorElemSize(type) * len);
+  if( p==NULL ){
+    return NULL;
+  }
+  vectorInit(p, type, p + sizeof(Vector), len);
+  return p;
 }
 
 /**
