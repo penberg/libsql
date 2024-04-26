@@ -15,10 +15,13 @@ typedef struct DiskAnnIndex DiskAnnIndex;
 
 #define VECTOR_TYPE_F32 0
 
+#define VECTOR_FLAGS_STATIC 1
+
 /* An instance of this object represents a vector.
 */
 struct Vector {
-  u32 type;
+  u16 type;
+  u16 flags;
   u32 len;
   void *data;
 };

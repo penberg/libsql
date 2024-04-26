@@ -61,19 +61,22 @@ static Vector *vectorContextAlloc(sqlite3_context *pCtx, u32 type){
 }
 
 /**
-** Free a Vector object and its data buffer allocated in the SQLite context. 
+** Free a Vector object and its data buffer allocated, unless the vector is static.
 **/
-static void vectorContextFree(Vector *p){
+void vectorFree(Vector *p){
+  if( p->flags & VECTOR_FLAGS_STATIC ){
+    return;
+  }
   sqlite3_free(p);
 }
 
 /*
-** Initialize the Vector object from blob
+** Initialize a static Vector object.
 **
 ** Note that that the vector object points to the blob so if
 ** you free the blob, the vector becomes invalid.
 **/
-static void vectorInitFromBlob(Vector *p, u32 type, const unsigned char *blob){
+static void vectorInitStatic(Vector *p, u32 type, const unsigned char *blob){
   switch (type) {
     case VECTOR_TYPE_F32:
       vectorF32InitFromBlob(p, blob);
@@ -82,6 +85,7 @@ static void vectorInitFromBlob(Vector *p, u32 type, const unsigned char *blob){
       assert(0);
   }
   p->type = type;
+  p->flags = VECTOR_FLAGS_STATIC;
 }
 
 float vectorDistanceCos(Vector *v1, Vector *v2){
@@ -357,7 +361,7 @@ int vectorIndexInsert(
   rowid = r.aMem + 1;
   assert( sqlite3_value_type(rowid) == SQLITE_INTEGER );
   Vector v;
-  vectorInitFromBlob(&v, VECTOR_TYPE_F32, sqlite3_value_blob(vec));
+  vectorInitStatic(&v, VECTOR_TYPE_F32, sqlite3_value_blob(vec));
   diskAnnInsert(pCur->index, &v, sqlite3_value_int64(rowid));
   return 0;
 }
@@ -430,7 +434,7 @@ static void vectorFunc(
   }
   vectorSerialize(context, pVec);
 out_free_vec:
-  vectorContextFree(pVec);
+  vectorFree(pVec);
 }
 
 /*
@@ -460,7 +464,7 @@ static void vectorExtractFunc(
   }
   vectorDeserialize(context, pVec);
 out_free:
-  vectorContextFree(pVec);
+  vectorFree(pVec);
 }
 
 /*
@@ -500,9 +504,9 @@ static void vectorDistanceCosFunc(
   }
   sqlite3_result_double(context, vectorDistanceCos(pVec1, pVec2));
 out_free_vec2:
-  vectorContextFree(pVec2);
+  vectorFree(pVec2);
 out_free_vec1:
-  vectorContextFree(pVec1);
+  vectorFree(pVec1);
 }
 
 /*
