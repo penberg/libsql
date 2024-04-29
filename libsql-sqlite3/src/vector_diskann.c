@@ -256,10 +256,10 @@ static int diskAnnWriteVector(
   /* nNeighbours */
   blockData[off++] = nNeighbours;
   blockData[off++] = nNeighbours >> 8;
-//  off += vectorSerializeToBlob(pVec, (void*)blockData+off, DISKANN_BLOCK_SIZE);
-//  for (int i = 0; i < nNeighbours; i++) {
-//    off += vectorSerializeToBlob(aNeighbours[i], (void*)blockData+off, DISKANN_BLOCK_SIZE);
-//  }
+  off += vectorSerializeToBlob(pVec, (void*)blockData+off, DISKANN_BLOCK_SIZE);
+  for (int i = 0; i < nNeighbours; i++) {
+    off += vectorSerializeToBlob(aNeighbours[i], (void*)blockData+off, DISKANN_BLOCK_SIZE);
+  }
   off = neighbourMetadataOffset(pIndex);
   for( int i = 0; i < nNeighbours; i++ ){
     blockData[off++] = aNeighbourMetadata[i].id;
