@@ -126,7 +126,7 @@ static void vectorNodeFree(VectorNode *pNode){
 **************************************************************************/
 
 #define VECTOR_METADATA_SIZE    sizeof(u64)
-#define NEIGHBOUR_METADATA_SIZE sizeof(VectorMetadata)
+#define NEIGHBOUR_METADATA_SIZE (sizeof(u64) + sizeof(u64))
 
 static unsigned int blockSize(DiskAnnIndex *pIndex){
   return pIndex->header.nBlockSize << DISKANN_BLOCK_SIZE_SHIFT;
