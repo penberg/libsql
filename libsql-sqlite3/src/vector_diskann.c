@@ -393,40 +393,53 @@ static int isVisited(SearchContext *pCtx, u64 id){
 }
 
 static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
+  int candidateIdx = -1;
   // TODO: replace the check with a better data structure
   for( int i = 0; i < pCtx->nCandidates; i++ ){
     if( pCtx->aCandidates[i]->id==pNode->id ){
       return;
     }
   }
-  // If there are no candidates, append the node to the candidate list.
+  // Special-case insertion to empty candidate set to avoid the distance calculation.
   if( pCtx->nCandidates==0 ){
     pCtx->aCandidates[pCtx->nCandidates++] = pNode;
     pCtx->nUnvisited++;
     return;
   }
+  // Find the index of the candidate that is further away from the query
+  // vector than the one we're inserting.
   float dist = vectorDistanceCos(pCtx->pQuery, pNode->vec);
-  // If the node is closer to the query than the farthest candidate, insert it.
   for( int n = 0; n < pCtx->nCandidates; n++ ){
-    float distCandidate = vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[n]->vec); // Distance to the current candidate
+    float distCandidate = vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[n]->vec);
     if( dist < distCandidate ){
-      if( pCtx->nCandidates < pCtx->maxCandidates ){
-        pCtx->nCandidates++;
-      }
-      for( int i = pCtx->nCandidates-1; i > n; i-- ){
-        pCtx->aCandidates[i] = pCtx->aCandidates[i-1];
-      }
-      // FIXME: we are leaking memory of the replaced candidate
-      pCtx->aCandidates[n] = pNode;
-      pCtx->nUnvisited++;
-      return;
+      candidateIdx = n;
+      break;
     }
   }
-  // If all other candidates were closer, but there is still room, append the node.
+  // If there is space for the new candidate, insert it; otherwise replace an
+  // existing one.
   if( pCtx->nCandidates < pCtx->maxCandidates ){
-    pCtx->aCandidates[pCtx->nCandidates++] = pNode;
-    pCtx->nUnvisited++;
+    pCtx->nCandidates++;
+    if( candidateIdx==-1 ){
+      candidateIdx = pCtx->nCandidates-1;
+    }
+  } else {
+    if( candidateIdx==-1 ){
+      return;
+    }
+    VectorNode *toReplace = pCtx->aCandidates[pCtx->nCandidates-1];
+    if( !toReplace->visited ){
+      pCtx->nUnvisited--;
+      vectorNodeFree(toReplace);
+    }
   }
+  // Shift the candidates to the right to make space for the new one.
+  for( int i = pCtx->nCandidates-1; i > candidateIdx; i-- ){
+    pCtx->aCandidates[i] = pCtx->aCandidates[i-1];
+  }
+  // Insert the new candidate.
+  pCtx->aCandidates[candidateIdx] = pNode;
+  pCtx->nUnvisited++;
 }
 
 static VectorNode* findClosestCandidate(SearchContext *pCtx){
@@ -466,6 +479,7 @@ static int diskAnnSearchInternal(
   addCandidate(pCtx, start);
   while( hasUnvisitedCandidates(pCtx) ){
     VectorNode *candidate = findClosestCandidate(pCtx);
+    assert( candidate!=NULL );
     markAsVisited(pCtx, candidate);
     for( int i = 0; i < candidate->nNeighbours; i++ ){
       if( isVisited(pCtx, candidate->aNeighbours[i].id) ){
