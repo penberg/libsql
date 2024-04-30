@@ -383,9 +383,11 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
     pCtx->nUnvisited++;
     return;
   }
+  float dist = vectorDistanceCos(pCtx->pQuery, pNode->vec);
   // If the node is closer to the query than the farthest candidate, insert it.
   for( int n = 0; n < pCtx->nCandidates; n++ ){
-    if( vectorDistanceCos(pCtx->pQuery, pNode->vec) < vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[n]->vec) ){
+    float distCandidate = vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[n]->vec); // Distance to the current candidate
+    if( dist < distCandidate ){
       if( pCtx->nCandidates < pCtx->maxCandidates ){
         pCtx->nCandidates++;
       }
