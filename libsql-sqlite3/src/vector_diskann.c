@@ -383,6 +383,15 @@ static void deinitSearchContext(SearchContext *pCtx){
   sqlite3_free(pCtx->aCandidates);
 }
 
+static int isVisited(SearchContext *pCtx, u64 id){
+  for( VectorNode *pNode = pCtx->visitedList; pNode!=NULL; pNode = pNode->pNext ){
+    if( pNode->id==id ){
+      return 1;
+    }
+  }
+  return 0;
+}
+
 static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
   // TODO: replace the check with a better data structure
   for( int i = 0; i < pCtx->nCandidates; i++ ){
@@ -407,6 +416,7 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
       for( int i = pCtx->nCandidates-1; i > n; i-- ){
         pCtx->aCandidates[i] = pCtx->aCandidates[i-1];
       }
+      // FIXME: we are leaking memory of the replaced candidate
       pCtx->aCandidates[n] = pNode;
       pCtx->nUnvisited++;
       return;
@@ -458,6 +468,9 @@ static int diskAnnSearchInternal(
     VectorNode *candidate = findClosestCandidate(pCtx);
     markAsVisited(pCtx, candidate);
     for( int i = 0; i < candidate->nNeighbours; i++ ){
+      if( isVisited(pCtx, candidate->aNeighbours[i].id) ){
+        continue;
+      }
       VectorNode *neighbour = diskAnnReadVector(pIndex, candidate->aNeighbours[i].offset);
       if( neighbour==NULL ){
         continue;
