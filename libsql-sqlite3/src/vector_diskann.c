@@ -200,7 +200,7 @@ static VectorNode *diskAnnReadVector(
     return NULL;
   }
   pNode->offset = offset;
-  pNode->vec = vectorAlloc(pIndex->header.nVectorDims, pIndex->header.nVectorType);
+  pNode->vec = vectorAlloc(pIndex->header.nVectorType, pIndex->header.nVectorDims);
   if( pNode->vec==NULL ){
     vectorNodeFree(pNode);
     return NULL;
