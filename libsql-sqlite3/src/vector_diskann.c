@@ -90,6 +90,7 @@ struct VectorNode {
   Vector *vec;
   u64 id;
   u64 offset;
+  int refCnt;
   int visited;                    /* Is this node visited? */
   VectorNode *pNext;              /* Next node in the visited list */
   u64 nNeighbours;                /* Number of neighbours */
@@ -106,6 +107,8 @@ static VectorNode *vectorNodeNew(u64 id, u16 nNeighbours){
   if( pNode ){
     pNode->vec = NULL;
     pNode->id = id;
+    pNode->offset = 0;
+    pNode->refCnt = 1;
     pNode->nNeighbours = nNeighbours;
     pNode->visited = 0;
     pNode->pNext = NULL;
@@ -119,6 +122,19 @@ static void vectorNodeFree(VectorNode *pNode){
   }
   vectorFree(pNode->vec);
   sqlite3_free(pNode);
+}
+
+static VectorNode* vectorNodeGet(VectorNode *pNode){
+  pNode->refCnt++;
+  return pNode;
+}
+
+static void vectorNodePut(VectorNode *pNode){
+  assert( pNode->refCnt>0 );
+  pNode->refCnt--;
+  if( pNode->refCnt==0 ){
+    vectorNodeFree(pNode);
+  }
 }
 
 /**************************************************************************
@@ -220,7 +236,7 @@ static VectorNode *diskAnnReadVector(
   pNode->offset = offset;
   pNode->vec = vectorAlloc(pIndex->header.nVectorType, pIndex->header.nVectorDims);
   if( pNode->vec==NULL ){
-    vectorNodeFree(pNode);
+    vectorNodePut(pNode);
     return NULL;
   }
   off += vectorDeserializeFromBlob(pNode->vec, blockData+off, DISKANN_BLOCK_SIZE);
@@ -228,7 +244,7 @@ static VectorNode *diskAnnReadVector(
     VectorMetadata *pMetadata = &pNode->aNeighbours[i];
     pMetadata->vec = vectorAlloc(pIndex->header.nVectorType, pIndex->header.nVectorDims);
     if( pMetadata->vec==NULL ){
-      vectorNodeFree(pNode);
+      vectorNodePut(pNode);
       return NULL;
     }
     off += vectorDeserializeFromBlob(pMetadata->vec, blockData+off, DISKANN_BLOCK_SIZE);
@@ -395,7 +411,7 @@ static void deinitSearchContext(SearchContext *pCtx){
   pNode = pCtx->visitedList;
   while( pNode!=NULL ){
     pNext = pNode->pNext;
-    vectorNodeFree(pNode);
+    vectorNodePut(pNode);
     pNode = pNext;
   }
   sqlite3_free(pCtx->aCandidates);
@@ -420,7 +436,7 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
   }
   // Special-case insertion to empty candidate set to avoid the distance calculation.
   if( pCtx->nCandidates==0 ){
-    pCtx->aCandidates[pCtx->nCandidates++] = pNode;
+    pCtx->aCandidates[pCtx->nCandidates++] = vectorNodeGet(pNode);
     pCtx->nUnvisited++;
     return;
   }
@@ -448,7 +464,7 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
     VectorNode *toReplace = pCtx->aCandidates[pCtx->nCandidates-1];
     if( !toReplace->visited ){
       pCtx->nUnvisited--;
-      vectorNodeFree(toReplace);
+      vectorNodePut(toReplace);
     }
   }
   // Shift the candidates to the right to make space for the new one.
@@ -456,7 +472,7 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
     pCtx->aCandidates[i] = pCtx->aCandidates[i-1];
   }
   // Insert the new candidate.
-  pCtx->aCandidates[candidateIdx] = pNode;
+  pCtx->aCandidates[candidateIdx] = vectorNodeGet(pNode);
   pCtx->nUnvisited++;
 }
 
@@ -508,8 +524,10 @@ static int diskAnnSearchInternal(
         continue;
       }
       addCandidate(pCtx, neighbour);
+      vectorNodePut(neighbour);
     }
   }
+  vectorNodePut(start);
   return 0;
 }
 
@@ -607,7 +625,7 @@ out_free_metadata:
 out_free_neighbours:
   sqlite3_free(aNeighbours);
 out_free_node:
-  vectorNodeFree(pNode);
+  vectorNodePut(pNode);
   return rc;
 }
 
