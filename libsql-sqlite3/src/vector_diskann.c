@@ -136,6 +136,20 @@ static unsigned int vectorSize(DiskAnnIndex *pIndex){
   return sizeof(u32) + pIndex->header.nVectorDims * vectorElemSize(VECTOR_TYPE_F32);
 }
 
+static int diskAnnMaxNeighbours(DiskAnnIndex *pIndex){
+  unsigned int nNeighbourVectorSize;
+  unsigned int maxNeighbours;
+  unsigned int nVectorSize;
+  unsigned int nBlockSize;
+  nBlockSize = blockSize(pIndex);
+  nVectorSize = vectorSize(pIndex);
+  nNeighbourVectorSize = vectorSize(pIndex);
+  maxNeighbours = (nBlockSize - nVectorSize - VECTOR_METADATA_SIZE) / (nNeighbourVectorSize + NEIGHBOUR_METADATA_SIZE);
+  assert( maxNeigbours > 0);
+  return maxNeighbours;
+
+}
+
 static int neighbourMetadataOffset(DiskAnnIndex *pIndex){
   unsigned int nNeighbourVectorSize;
   unsigned int maxNeighbours;
@@ -309,6 +323,7 @@ static int diskAnnUpdateVectorNeighbour(
   Vector *pNeighbourVector
 ) {
   unsigned char blockData[DISKANN_BLOCK_SIZE];
+  unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
   u16 nNeighbours;
   int off;
   int rc;
@@ -320,8 +335,11 @@ static int diskAnnUpdateVectorNeighbour(
   if( rc != SQLITE_OK ){
     return -1;
   }
-  // TODO: prune neighbours if necessary
   nNeighbours = (u16) blockData[8] | (u16) blockData[9] << 8;
+  if( nNeighbours==maxNeighbours ){
+    // TODO: prune neighbours if necessary
+    return SQLITE_OK;
+  }
   /* Append neighbour to the end of the list. */
   off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + nNeighbours * vectorSize(pIndex);
   vectorSerializeToBlob(pNeighbourVector, (void*)blockData+off, DISKANN_BLOCK_SIZE);
@@ -522,18 +540,16 @@ int diskAnnSearch(
 ** DiskANN insertion
 **************************************************************************/
 
-// TODO: fix hard-coded limit
-#define MAX_NEIGHBOURS 10
-
 int diskAnnInsert(
   DiskAnnIndex *pIndex,
   Vector *pVec,
   i64 id
 ){
+  unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
   unsigned int nNeighbours = 0;
   unsigned int nBlockSize;
-  Vector *aNeighbours[MAX_NEIGHBOURS];
-  VectorMetadata aNeighbourMetadata[MAX_NEIGHBOURS];
+  Vector **aNeighbours;
+  VectorMetadata *aNeighbourMetadata;
   unsigned int nWritten;
   int rc = SQLITE_OK;
   VectorNode *pNode;
@@ -544,9 +560,22 @@ int diskAnnInsert(
     return SQLITE_NOMEM;
   }
   pNode->offset = pIndex->nFileSize; // TODO: ensure this does not change later
+  aNeighbours = sqlite3_malloc(maxNeighbours * sizeof(Vector*));
+  if( aNeighbours==NULL ){
+    rc = SQLITE_NOMEM;
+    goto out_free_node;
+  }
+  aNeighbourMetadata = sqlite3_malloc(maxNeighbours * sizeof(VectorMetadata));
+  if( aNeighbourMetadata==NULL ){
+    rc = SQLITE_NOMEM;
+    goto out_free_neighbours;
+  }
   initSearchContext(&ctx, pVec, 10); // TODO: Fix hard-coded L
   diskAnnSearchInternal(pIndex, &ctx);
   for( VectorNode *pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
+    if( nNeighbours==maxNeighbours ){
+      break;
+    }
     aNeighbours[nNeighbours] = pVisited->vec;
     aNeighbourMetadata[nNeighbours].id = pVisited->id;
     aNeighbourMetadata[nNeighbours].offset = pVisited->offset;
@@ -564,7 +593,7 @@ int diskAnnInsert(
 
   if( nWritten<0 ){
     rc = SQLITE_ERROR;
-    goto out;
+    goto out_free_metadata;
   }
   pIndex->nFileSize += nWritten;
 
@@ -573,7 +602,11 @@ int diskAnnInsert(
     pIndex->header.entryVectorOffset = pNode->offset;
     diskAnnWriteHeader(pIndex->pFd, &pIndex->header);
   }
-out:
+out_free_metadata:
+  sqlite3_free(aNeighbourMetadata);
+out_free_neighbours:
+  sqlite3_free(aNeighbours);
+out_free_node:
   vectorNodeFree(pNode);
   return rc;
 }
