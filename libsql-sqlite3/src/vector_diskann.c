@@ -81,6 +81,7 @@ struct DiskAnnIndex {
 };
 
 struct VectorMetadata {
+  Vector *vec;
   u64 id;
   u64 offset;
 };
@@ -113,6 +114,9 @@ static VectorNode *vectorNodeNew(u64 id, u16 nNeighbours){
 }
 
 static void vectorNodeFree(VectorNode *pNode){
+  for( int i = 0; i < pNode->nNeighbours; i++ ){
+    vectorFree(pNode->aNeighbours[i].vec);
+  }
   vectorFree(pNode->vec);
   sqlite3_free(pNode);
 }
@@ -205,7 +209,16 @@ static VectorNode *diskAnnReadVector(
     vectorNodeFree(pNode);
     return NULL;
   }
-  vectorDeserializeFromBlob(pNode->vec, blockData+off, DISKANN_BLOCK_SIZE);
+  off += vectorDeserializeFromBlob(pNode->vec, blockData+off, DISKANN_BLOCK_SIZE);
+  for( int i = 0; i < nNeighbours; i++ ){
+    VectorMetadata *pMetadata = &pNode->aNeighbours[i];
+    pMetadata->vec = vectorAlloc(pIndex->header.nVectorType, pIndex->header.nVectorDims);
+    if( pMetadata->vec==NULL ){
+      vectorNodeFree(pNode);
+      return NULL;
+    }
+    off += vectorDeserializeFromBlob(pMetadata->vec, blockData+off, DISKANN_BLOCK_SIZE);
+  }
   off = neighbourMetadataOffset(pIndex);
   for( int i = 0; i < nNeighbours; i++ ){
     pNode->aNeighbours[i].id = (u64) blockData[off+0]
