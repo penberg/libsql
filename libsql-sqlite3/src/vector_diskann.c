@@ -599,7 +599,6 @@ int diskAnnInsert(
     aNeighbourMetadata[nNeighbours].offset = pVisited->offset;
     nNeighbours++;
   }
-  // TODO: prune p 
   for( VectorNode* pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
     diskAnnUpdateVectorNeighbour(pIndex, pVisited, pNode, pVec);
   }
