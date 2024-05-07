@@ -338,7 +338,6 @@ static int diskAnnUpdateVectorNeighbour(
   VectorNode *pNodeToAdd,
   Vector *pVecToAdd
 ) {
-  printf("%s\n", __func__);
   unsigned char blockData[DISKANN_BLOCK_SIZE];
   unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
   u16 nNeighbours;
@@ -354,23 +353,12 @@ static int diskAnnUpdateVectorNeighbour(
   }
   nNeighbours = (u16) blockData[8] | (u16) blockData[9] << 8;
   off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
-  printf("Vector:\n");
-  vectorDump(pVec->vec);
-  printf("To add vector:\n");
-  vectorDump(pVecToAdd);
   int insertIdx = nNeighbours;
   double toAddDist = vectorDistanceCos(pVecToAdd, pVec->vec);
   for( int i = 0; i < nNeighbours; i++ ){
     Vector neighbour;
-
     vectorInitStatic(&neighbour, pIndex->header.nVectorType, blockData+off);
-
     float dist = vectorDistanceCos(&neighbour, pVec->vec);
-
-    vectorDump(&neighbour);
-
-    printf("toAddDist: %f, other dist: %f\n", toAddDist, dist);
-
     if( toAddDist < dist ){
       insertIdx = i;
       break;
@@ -380,19 +368,15 @@ static int diskAnnUpdateVectorNeighbour(
   if( insertIdx==maxNeighbours ){
     return SQLITE_OK;
   }
-  printf("Inserting at %d\n", insertIdx);
-
   /* Update neibhbour count */
   if( nNeighbours<maxNeighbours ){
     nNeighbours++;
   }
-
   /* Calculate how many neighbours need to move. */
   int nToMove = nNeighbours-insertIdx-1;
 
   /* Move the neighbours to the right to make room. */
   off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + insertIdx * vectorSize(pIndex);
-  printf("nToMove: %d\n", nToMove);
   memcpy(blockData+off+vectorSize(pIndex), blockData+off, nToMove * vectorSize(pIndex));
 
   /* Insert new neighbour to the list. */
