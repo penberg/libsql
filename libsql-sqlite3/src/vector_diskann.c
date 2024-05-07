@@ -617,7 +617,7 @@ int diskAnnInsert(
     rc = SQLITE_NOMEM;
     goto out_free_neighbours;
   }
-  initSearchContext(&ctx, pVec, 10); // TODO: Fix hard-coded L
+  initSearchContext(&ctx, pVec, 100); // TODO: Fix hard-coded L
   diskAnnSearchInternal(pIndex, &ctx);
   for( VectorNode *pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
     if( nNeighbours==maxNeighbours ){
