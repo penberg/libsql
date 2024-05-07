@@ -335,9 +335,10 @@ static int diskAnnWriteVector(
 static int diskAnnUpdateVectorNeighbour(
   DiskAnnIndex *pIndex,
   VectorNode *pVec,
-  VectorNode *pNeighbour,
-  Vector *pNeighbourVector
+  VectorNode *pNodeToAdd,
+  Vector *pVecToAdd
 ) {
+  printf("%s\n", __func__);
   unsigned char blockData[DISKANN_BLOCK_SIZE];
   unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
   u16 nNeighbours;
@@ -352,30 +353,74 @@ static int diskAnnUpdateVectorNeighbour(
     return -1;
   }
   nNeighbours = (u16) blockData[8] | (u16) blockData[9] << 8;
-  if( nNeighbours==maxNeighbours ){
-    // TODO: prune neighbours if necessary
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
+  printf("Vector:\n");
+  vectorDump(pVec->vec);
+  printf("To add vector:\n");
+  vectorDump(pVecToAdd);
+  int insertIdx = nNeighbours;
+  double toAddDist = vectorDistanceCos(pVecToAdd, pVec->vec);
+  for( int i = 0; i < nNeighbours; i++ ){
+    Vector neighbour;
+
+    vectorInitStatic(&neighbour, pIndex->header.nVectorType, blockData+off);
+
+    float dist = vectorDistanceCos(&neighbour, pVec->vec);
+
+    vectorDump(&neighbour);
+
+    printf("toAddDist: %f, other dist: %f\n", toAddDist, dist);
+
+    if( toAddDist < dist ){
+      insertIdx = i;
+      break;
+    }
+    off += vectorSize(pIndex);
+  }
+  if( insertIdx==maxNeighbours ){
     return SQLITE_OK;
   }
-  /* Append neighbour to the end of the list. */
-  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + nNeighbours * vectorSize(pIndex);
-  vectorSerializeToBlob(pNeighbourVector, (void*)blockData+off, DISKANN_BLOCK_SIZE);
-  off = neighbourMetadataOffset(pIndex) + nNeighbours * NEIGHBOUR_METADATA_SIZE;
-  blockData[off++] = pNeighbour->id;
-  blockData[off++] = pNeighbour->id >> 8;
-  blockData[off++] = pNeighbour->id >> 16;
-  blockData[off++] = pNeighbour->id >> 24;
-  blockData[off++] = pNeighbour->id >> 32;
-  blockData[off++] = pNeighbour->id >> 40;
-  blockData[off++] = pNeighbour->id >> 48;
-  blockData[off++] = pNeighbour->id >> 56;
-  blockData[off++] = pNeighbour->offset;
-  blockData[off++] = pNeighbour->offset >> 8;
-  blockData[off++] = pNeighbour->offset >> 16;
-  blockData[off++] = pNeighbour->offset >> 24;
-  blockData[off++] = pNeighbour->offset >> 32;
-  blockData[off++] = pNeighbour->offset >> 40;
-  blockData[off++] = pNeighbour->offset >> 48;
-  nNeighbours++;
+  printf("Inserting at %d\n", insertIdx);
+
+  /* Update neibhbour count */
+  if( nNeighbours<maxNeighbours ){
+    nNeighbours++;
+  }
+
+  /* Calculate how many neighbours need to move. */
+  int nToMove = nNeighbours-insertIdx-1;
+
+  /* Move the neighbours to the right to make room. */
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + insertIdx * vectorSize(pIndex);
+  printf("nToMove: %d\n", nToMove);
+  memcpy(blockData+off+vectorSize(pIndex), blockData+off, nToMove * vectorSize(pIndex));
+
+  /* Insert new neighbour to the list. */
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + insertIdx * vectorSize(pIndex);
+  vectorSerializeToBlob(pVecToAdd, (void*)blockData+off, DISKANN_BLOCK_SIZE);
+
+  off = neighbourMetadataOffset(pIndex) + insertIdx * NEIGHBOUR_METADATA_SIZE;
+
+  /* Move the metadata to right to make room. */
+  memcpy(blockData+off+NEIGHBOUR_METADATA_SIZE, blockData+off, nToMove * NEIGHBOUR_METADATA_SIZE);
+
+  /* Insert new metadata to the list */
+  blockData[off++] = pNodeToAdd->id;
+  blockData[off++] = pNodeToAdd->id >> 8;
+  blockData[off++] = pNodeToAdd->id >> 16;
+  blockData[off++] = pNodeToAdd->id >> 24;
+  blockData[off++] = pNodeToAdd->id >> 32;
+  blockData[off++] = pNodeToAdd->id >> 40;
+  blockData[off++] = pNodeToAdd->id >> 48;
+  blockData[off++] = pNodeToAdd->id >> 56;
+  blockData[off++] = pNodeToAdd->offset;
+  blockData[off++] = pNodeToAdd->offset >> 8;
+  blockData[off++] = pNodeToAdd->offset >> 16;
+  blockData[off++] = pNodeToAdd->offset >> 24;
+  blockData[off++] = pNodeToAdd->offset >> 32;
+  blockData[off++] = pNodeToAdd->offset >> 40;
+  blockData[off++] = pNodeToAdd->offset >> 48;
+
   blockData[8] = nNeighbours;
   blockData[9] = nNeighbours >> 8;
   rc = sqlite3OsWrite(pIndex->pFd, blockData, DISKANN_BLOCK_SIZE, pVec->offset);
