@@ -70,7 +70,7 @@ struct DiskAnnHeader {
   unsigned short nVectorType;        /* Vector type */
   unsigned short nVectorDims;        /* Number of vector dimensions */
   unsigned short similarityFunction; /* Similarity function */
-  i64 entryVectorOffset;             /* Offset to random offset to use to start search */
+  i64 padding;                       /* Padding */
   i64 firstFreeOffset;               /* First free offset */
 };
 
@@ -529,13 +529,27 @@ static int hasUnvisitedCandidates(SearchContext *pCtx){
   return pCtx->nUnvisited > 0;
 }
 
+static int diskannBlockCount(DiskAnnIndex *pIndex){
+  return (pIndex->nFileSize / blockSize(pIndex)) - 1;
+}
+
 static int diskAnnSearchInternal(
   DiskAnnIndex *pIndex,
   SearchContext *pCtx
 ){
   VectorNode *start;
+  u64 entryOffset;
+  u32 randomBlock;
+  int nBlocks;
 
-  start = diskAnnReadVector(pIndex, pIndex->header.entryVectorOffset);
+  nBlocks = diskannBlockCount(pIndex);
+  if( nBlocks==0 ){
+    return -1;
+  }
+  sqlite3_randomness(4, &randomBlock);
+  randomBlock %= nBlocks;
+  entryOffset = randomBlock * blockSize(pIndex);
+  start = diskAnnReadVector(pIndex, entryOffset);
   if( start==NULL ){
     return 0;
   }
@@ -643,11 +657,6 @@ int diskAnnInsert(
   }
   pIndex->nFileSize += nWritten;
 
-  if( pIndex->header.entryVectorOffset == 0 ){
-    // TODO: We actually want the entry to be random, but let's start with the first one.
-    pIndex->header.entryVectorOffset = pNode->offset;
-    diskAnnWriteHeader(pIndex->pFd, &pIndex->header);
-  }
 out_free_metadata:
   sqlite3_free(aNeighbourMetadata);
 out_free_neighbours:
@@ -706,7 +715,6 @@ int diskAnnCreateIndex(
   pIndex->header.nVectorType = VECTOR_TYPE_F32;
   pIndex->header.nVectorDims = nDims;
   pIndex->header.similarityFunction = 0;
-  pIndex->header.entryVectorOffset = 0;
   pIndex->header.firstFreeOffset = 0;
   rc = diskAnnWriteHeader(pIndex->pFd, &pIndex->header);
   if( rc != SQLITE_OK ){
