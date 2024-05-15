@@ -100,17 +100,14 @@ size_t vectorF32DeserializeFromBlob(
   size_t blobSz
 ){
   float *elems = v->data;
-  size_t len = 0;
   v->len = deserializeU32(blob);
   assert( blobSz >= sizeof(u32) + v->len * sizeof(float) );
   blob += sizeof(u32);
-  len += sizeof(u32);
   for (unsigned i = 0; i < v->len; i++) {
     elems[i] = deserializeF32(blob);
     blob += sizeof(float);
-    len += sizeof(float);
   }
-  return len;
+  return sizeof(u32) + v->len*sizeof(float);
 }
 
 void vectorF32Serialize(
