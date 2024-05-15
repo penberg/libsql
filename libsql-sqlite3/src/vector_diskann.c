@@ -715,6 +715,7 @@ int diskAnnCreateIndex(
   pIndex->header.nVectorType = VECTOR_TYPE_F32;
   pIndex->header.nVectorDims = nDims;
   pIndex->header.similarityFunction = 0;
+  pIndex->header.padding = 0;
   pIndex->header.firstFreeOffset = 0;
   rc = diskAnnWriteHeader(pIndex->pFd, &pIndex->header);
   if( rc != SQLITE_OK ){
