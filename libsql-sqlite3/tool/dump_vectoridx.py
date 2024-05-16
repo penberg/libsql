@@ -9,8 +9,8 @@ def vector_size(vector_dims):
 def neighbour_metadata_offset(block_size, vector_dims):
     vector_sz = vector_size(vector_dims)
     neighbour_vector_sz = vector_size(vector_dims)
-    max_neighbours = int((block_size - 8 - vector_sz) / (neighbour_vector_sz + 16))
-    return 8 + vector_sz + neighbour_vector_sz * max_neighbours
+    max_neighbours = int((block_size - 8 - 2 - vector_sz) / (neighbour_vector_sz + 16))
+    return 8 + 2 + vector_sz + neighbour_vector_sz * max_neighbours
 
 def parse_vector(file, blocksize):
     off = 0

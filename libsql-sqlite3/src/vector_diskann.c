@@ -144,7 +144,7 @@ static void vectorNodePut(VectorNode *pNode){
 ** Utility routines for parsing the index file
 **************************************************************************/
 
-#define VECTOR_METADATA_SIZE    sizeof(u64)
+#define VECTOR_METADATA_SIZE    (sizeof(u64) + sizeof(u16))
 #define NEIGHBOUR_METADATA_SIZE (sizeof(u64) + sizeof(u64))
 
 static unsigned int blockSize(DiskAnnIndex *pIndex){
@@ -384,7 +384,7 @@ static int diskAnnUpdateVectorNeighbour(
 
   /* Move the neighbours to the right to make room. */
   off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + insertIdx * vectorSize(pIndex);
-  memcpy(blockData+off+vectorSize(pIndex), blockData+off, nToMove * vectorSize(pIndex));
+  memmove(blockData+off+vectorSize(pIndex), blockData+off, nToMove * vectorSize(pIndex));
 
   /* Insert new neighbour to the list. */
   off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + insertIdx * vectorSize(pIndex);
@@ -393,7 +393,7 @@ static int diskAnnUpdateVectorNeighbour(
   off = neighbourMetadataOffset(pIndex) + insertIdx * NEIGHBOUR_METADATA_SIZE;
 
   /* Move the metadata to right to make room. */
-  memcpy(blockData+off+NEIGHBOUR_METADATA_SIZE, blockData+off, nToMove * NEIGHBOUR_METADATA_SIZE);
+  memmove(blockData+off+NEIGHBOUR_METADATA_SIZE, blockData+off, nToMove * NEIGHBOUR_METADATA_SIZE);
 
   /* Insert new metadata to the list */
   blockData[off++] = pNodeToAdd->id;
