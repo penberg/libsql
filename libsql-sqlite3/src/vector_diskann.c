@@ -365,7 +365,7 @@ static int diskAnnUpdateVectorNeighbour(
     }
     off += vectorSize(pIndex);
   }
-  if( insertIdx==maxNeighbours ){
+  if( insertIdx==maxNeighbours-1 ){
     return SQLITE_OK;
   }
   /* Update neibhbour count */
