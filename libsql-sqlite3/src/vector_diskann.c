@@ -356,7 +356,7 @@ static int diskAnnUpdateVectorNeighbour(
   }
   nNeighbours = (u16) blockData[8] | (u16) blockData[9] << 8;
   off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
-  int insertIdx = nNeighbours;
+  int insertIdx = -1;
   double toAddDist = vectorDistanceCos(pVecToAdd, pVec->vec);
   for( int i = 0; i < nNeighbours; i++ ){
     Vector neighbour;
@@ -368,12 +368,16 @@ static int diskAnnUpdateVectorNeighbour(
     }
     off += vectorSize(pIndex);
   }
-  if( insertIdx==maxNeighbours-1 ){
-    return SQLITE_OK;
-  }
-  /* Update neibhbour count */
   if( nNeighbours<maxNeighbours ){
+    if( insertIdx==-1 ){
+      insertIdx = nNeighbours;
+    }
     nNeighbours++;
+  } else {
+    /* If the node to insert is to be pruned, just bail out. */
+    if( insertIdx==-1 ){
+      return SQLITE_OK;
+    }
   }
   /* Calculate how many neighbours need to move. */
   int nToMove = nNeighbours-insertIdx-1;
