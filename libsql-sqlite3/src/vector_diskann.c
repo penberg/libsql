@@ -284,8 +284,7 @@ static int diskAnnWriteVector(
   Vector **aNeighbours,
   VectorMetadata *aNeighbourMetadata,
   int nNeighbours,
-  u64 offset,
-  u64 nBlockSize
+  u64 offset
 ){
   char blockData[DISKANN_BLOCK_SIZE]; // TODO: dynamic allocation
   int rc = SQLITE_OK;
@@ -326,6 +325,7 @@ static int diskAnnWriteVector(
     blockData[off++] = aNeighbourMetadata[i].offset >> 48;
     blockData[off++] = aNeighbourMetadata[i].offset >> 56;
   }
+  int nBlockSize = blockSize(pIndex);
   rc = sqlite3OsWrite(pIndex->pFd, blockData, nBlockSize, pIndex->nFileSize);
   if( rc != SQLITE_OK ){
     return -1;
@@ -671,7 +671,6 @@ int diskAnnInsert(
 ){
   unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
   unsigned int nNeighbours = 0;
-  unsigned int nBlockSize;
   Vector **aNeighbours;
   VectorMetadata *aNeighbourMetadata;
   unsigned int nWritten;
@@ -703,8 +702,7 @@ int diskAnnInsert(
     diskAnnUpdateVectorNeighbour(pIndex, pVisited, pNode, pVec);
   }
 
-  nBlockSize = blockSize(pIndex);
-  nWritten = diskAnnWriteVector(pIndex, pVec, id, aNeighbours, aNeighbourMetadata, nNeighbours, pNode->offset, nBlockSize);
+  nWritten = diskAnnWriteVector(pIndex, pVec, id, aNeighbours, aNeighbourMetadata, nNeighbours, pNode->offset);
 
   deinitSearchContext(&ctx);
 
