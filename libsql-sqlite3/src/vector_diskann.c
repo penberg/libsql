@@ -519,12 +519,12 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
 static VectorNode* findClosestCandidate(SearchContext *pCtx){
   VectorNode *pClosestCandidate = NULL;
   for (int i = 0; i < pCtx->nCandidates; i++) {
-    if( !pCtx->aCandidates[i]->visited ){
+    VectorNode *pNewCandidate = pCtx->aCandidates[i];
+    if( !pNewCandidate->visited ){
       if( pClosestCandidate==NULL ){
-        pClosestCandidate = pCtx->aCandidates[i];
+        pClosestCandidate = pNewCandidate;
         continue;
       }
-      VectorNode *pNewCandidate = pCtx->aCandidates[i];
       float closestDist = vectorDistanceCos(pCtx->pQuery, pClosestCandidate->vec);
       float newDist = vectorDistanceCos(pCtx->pQuery, pNewCandidate->vec);
       if( newDist < closestDist ){
