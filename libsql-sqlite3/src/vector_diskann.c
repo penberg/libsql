@@ -55,7 +55,8 @@ typedef struct VectorMetadata VectorMetadata;
 typedef struct VectorNode VectorNode;
 
 /* TODO: Make this configurable. */
-#define DISKANN_DEFAULT_L 100
+#define DISKANN_DEFAULT_SEARCH_L 200
+#define DISKANN_DEFAULT_INSERT_L 70
 
 /**
 ** The block size in bytes.
@@ -598,7 +599,7 @@ int diskAnnSearch(
   int nIds = 0;
   int rc;
 
-  initSearchContext(&ctx, pVec, DISKANN_DEFAULT_L);
+  initSearchContext(&ctx, pVec, DISKANN_DEFAULT_SEARCH_L);
   rc = diskAnnSearchInternal(pIndex, &ctx);
   if( rc==0 ){
     for( int i = 0; i < ctx.nCandidates; i++ ){
@@ -645,7 +646,7 @@ int diskAnnInsert(
     rc = SQLITE_NOMEM;
     goto out_free_neighbours;
   }
-  initSearchContext(&ctx, pVec, DISKANN_DEFAULT_L);
+  initSearchContext(&ctx, pVec, DISKANN_DEFAULT_INSERT_L);
   diskAnnSearchInternal(pIndex, &ctx);
   for( VectorNode *pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
     if( nNeighbours==maxNeighbours ){
