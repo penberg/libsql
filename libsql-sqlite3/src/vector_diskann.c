@@ -55,6 +55,7 @@ typedef struct VectorMetadata VectorMetadata;
 typedef struct VectorNode VectorNode;
 
 /* TODO: Make this configurable. */
+#define DISKANN_DEFAULT_ALPHA 1.2
 #define DISKANN_DEFAULT_SEARCH_L 200
 #define DISKANN_DEFAULT_INSERT_L 70
 
@@ -363,7 +364,7 @@ static int diskAnnUpdateVectorNeighbour(
     Vector neighbour;
     vectorInitStatic(&neighbour, pIndex->header.nVectorType, blockData+off);
     float dist = vectorDistanceCos(&neighbour, pVec->vec);
-    if( toAddDist < dist ){
+    if( toAddDist * DISKANN_DEFAULT_ALPHA < dist ){
       insertIdx = i;
       break;
     }
@@ -639,7 +640,7 @@ static void diskAnnAddNeighbour(
   for( int i = 0; i < nNeighbors; i++ ){
     Vector *pNeighbour = aNeighbours[i];
     float distNeighbour = vectorDistanceCos(pVec, pNeighbour);
-    if( newNeighbourDist < distNeighbour ){
+    if( newNeighbourDist * DISKANN_DEFAULT_ALPHA < distNeighbour ){
       insertIdx = i;
       break;
     }
