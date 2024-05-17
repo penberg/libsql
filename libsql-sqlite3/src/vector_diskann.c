@@ -478,10 +478,10 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
   }
   // Find the index of the candidate that is further away from the query
   // vector than the one we're inserting.
-  float dist = vectorDistanceCos(pCtx->pQuery, pNode->vec);
+  float toInsertDist = vectorDistanceCos(pCtx->pQuery, pNode->vec);
   for( int n = 0; n < pCtx->nCandidates; n++ ){
     float distCandidate = vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[n]->vec);
-    if( dist < distCandidate ){
+    if( toInsertDist < distCandidate ){
       candidateIdx = n;
       break;
     }
@@ -513,15 +513,22 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
 }
 
 static VectorNode* findClosestCandidate(SearchContext *pCtx){
-  VectorNode *pNode = NULL;
+  VectorNode *pCurrCandidate = NULL;
   for (int i = 0; i < pCtx->nCandidates; i++) {
     if( !pCtx->aCandidates[i]->visited ){
-      if( pNode==NULL || vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[i]->vec) < vectorDistanceCos(pCtx->pQuery, pNode->vec) ){
-        pNode = pCtx->aCandidates[i];
+      if( pCurrCandidate==NULL ){
+        pCurrCandidate = pCtx->aCandidates[i];
+        continue;
+      }
+      VectorNode *pNewCandidate = pCtx->aCandidates[i];
+      float currentDist = vectorDistanceCos(pCtx->pQuery, pCurrCandidate->vec);
+      float newDist = vectorDistanceCos(pCtx->pQuery, pNewCandidate->vec);
+      if( newDist < currentDist ){
+        pCurrCandidate = pNewCandidate;
       }
     }
   }
-  return pNode;
+  return pCurrCandidate;
 }
 
 static void markAsVisited(SearchContext *pCtx, VectorNode *pNode){
