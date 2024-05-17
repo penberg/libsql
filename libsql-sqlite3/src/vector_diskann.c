@@ -616,6 +616,47 @@ int diskAnnSearch(
 ** DiskANN insertion
 **************************************************************************/
 
+static void diskAnnAddNeighbour(
+  DiskAnnIndex *pIndex,
+  Vector **aNeighbours,
+  VectorMetadata *aNeighbourMetadata,
+  unsigned int *pnNeighbours,
+  unsigned int maxNeighbours,
+  Vector *pVec,
+  VectorNode *pNewNeighbour
+){
+  unsigned int nNeighbors = *pnNeighbours;
+  float newNeighbourDist = vectorDistanceCos(pVec, pNewNeighbour->vec);
+  int insertIdx = -1;
+
+  for( int i = 0; i < nNeighbors; i++ ){
+    Vector *pNeighbour = aNeighbours[i];
+    float distNeighbour = vectorDistanceCos(pVec, pNeighbour);
+    if( newNeighbourDist < distNeighbour ){
+      insertIdx = i;
+      break;
+    }
+  }
+  if( nNeighbors<maxNeighbours ){
+    if( insertIdx==-1 ){
+      insertIdx = nNeighbors;
+    }
+    nNeighbors++;
+  } else {
+    if( insertIdx==-1 ){
+      return;
+    }
+  }
+  for( int i = nNeighbors-1; i > insertIdx; i-- ){
+    aNeighbours[i] = aNeighbours[i-1];
+    aNeighbourMetadata[i] = aNeighbourMetadata[i-1];
+  }
+  aNeighbours[insertIdx] = pNewNeighbour->vec;
+  aNeighbourMetadata[insertIdx].id = pNewNeighbour->id;
+  aNeighbourMetadata[insertIdx].offset = pNewNeighbour->offset;
+  *pnNeighbours = nNeighbors;
+}
+
 int diskAnnInsert(
   DiskAnnIndex *pIndex,
   Vector *pVec,
@@ -649,13 +690,7 @@ int diskAnnInsert(
   initSearchContext(&ctx, pVec, DISKANN_DEFAULT_INSERT_L);
   diskAnnSearchInternal(pIndex, &ctx);
   for( VectorNode *pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
-    if( nNeighbours==maxNeighbours ){
-      break;
-    }
-    aNeighbours[nNeighbours] = pVisited->vec;
-    aNeighbourMetadata[nNeighbours].id = pVisited->id;
-    aNeighbourMetadata[nNeighbours].offset = pVisited->offset;
-    nNeighbours++;
+    diskAnnAddNeighbour(pIndex, aNeighbours, aNeighbourMetadata, &nNeighbours, maxNeighbours, pVec, pVisited);
   }
   for( VectorNode* pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
     diskAnnUpdateVectorNeighbour(pIndex, pVisited, pNode, pVec);
