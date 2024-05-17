@@ -513,23 +513,26 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
   pCtx->nUnvisited++;
 }
 
+/**
+** Find the closest unvisited candidate to the query vector. 
+*/
 static VectorNode* findClosestCandidate(SearchContext *pCtx){
-  VectorNode *pCurrCandidate = NULL;
+  VectorNode *pClosestCandidate = NULL;
   for (int i = 0; i < pCtx->nCandidates; i++) {
     if( !pCtx->aCandidates[i]->visited ){
-      if( pCurrCandidate==NULL ){
-        pCurrCandidate = pCtx->aCandidates[i];
+      if( pClosestCandidate==NULL ){
+        pClosestCandidate = pCtx->aCandidates[i];
         continue;
       }
       VectorNode *pNewCandidate = pCtx->aCandidates[i];
-      float currentDist = vectorDistanceCos(pCtx->pQuery, pCurrCandidate->vec);
+      float closestDist = vectorDistanceCos(pCtx->pQuery, pClosestCandidate->vec);
       float newDist = vectorDistanceCos(pCtx->pQuery, pNewCandidate->vec);
-      if( newDist < currentDist ){
-        pCurrCandidate = pNewCandidate;
+      if( newDist < closestDist ){
+        pClosestCandidate = pNewCandidate;
       }
     }
   }
-  return pCurrCandidate;
+  return pClosestCandidate;
 }
 
 static void markAsVisited(SearchContext *pCtx, VectorNode *pNode){
