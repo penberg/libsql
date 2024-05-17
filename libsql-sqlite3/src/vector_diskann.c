@@ -529,6 +529,7 @@ static VectorNode* findClosestCandidate(SearchContext *pCtx){
       float newDist = vectorDistanceCos(pCtx->pQuery, pNewCandidate->vec);
       if( newDist < closestDist ){
         pClosestCandidate = pNewCandidate;
+        break;
       }
     }
   }
