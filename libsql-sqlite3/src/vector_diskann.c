@@ -463,8 +463,10 @@ static int isVisited(SearchContext *pCtx, u64 id){
   return 0;
 }
 
+/**
+** Add a candidate to the candidate set, replacing an existing candidate if needed.
+*/
 static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
-  int candidateIdx = -1;
   // TODO: replace the check with a better data structure
   for( int i = 0; i < pCtx->nCandidates; i++ ){
     if( pCtx->aCandidates[i]->id==pNode->id ){
@@ -477,39 +479,40 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
     pCtx->nUnvisited++;
     return;
   }
+  int insertIdx = -1;
   // Find the index of the candidate that is further away from the query
   // vector than the one we're inserting.
   float toInsertDist = vectorDistanceCos(pCtx->pQuery, pNode->vec);
-  for( int n = 0; n < pCtx->nCandidates; n++ ){
-    float distCandidate = vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[n]->vec);
+  for( int i = 0; i < pCtx->nCandidates; i++ ){
+    float distCandidate = vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[i]->vec);
     if( toInsertDist < distCandidate ){
-      candidateIdx = n;
+      insertIdx = i;
       break;
     }
   }
   // If there is space for the new candidate, insert it; otherwise replace an
   // existing one.
   if( pCtx->nCandidates < pCtx->maxCandidates ){
-    pCtx->nCandidates++;
-    if( candidateIdx==-1 ){
-      candidateIdx = pCtx->nCandidates-1;
+    if( insertIdx==-1 ){
+      insertIdx = pCtx->nCandidates;
     }
+    pCtx->nCandidates++;
   } else {
-    if( candidateIdx==-1 ){
+    if( insertIdx==-1 ){
       return;
     }
-    VectorNode *toReplace = pCtx->aCandidates[pCtx->nCandidates-1];
-    if( !toReplace->visited ){
+    VectorNode *toDrop = pCtx->aCandidates[pCtx->nCandidates-1];
+    if( !toDrop->visited ){
       pCtx->nUnvisited--;
-      vectorNodePut(toReplace);
+      vectorNodePut(toDrop);
     }
   }
   // Shift the candidates to the right to make space for the new one.
-  for( int i = pCtx->nCandidates-1; i > candidateIdx; i-- ){
+  for( int i = pCtx->nCandidates-1; i > insertIdx; i-- ){
     pCtx->aCandidates[i] = pCtx->aCandidates[i-1];
   }
   // Insert the new candidate.
-  pCtx->aCandidates[candidateIdx] = vectorNodeGet(pNode);
+  pCtx->aCandidates[insertIdx] = vectorNodeGet(pNode);
   pCtx->nUnvisited++;
 }
 
