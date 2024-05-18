@@ -364,7 +364,7 @@ static int diskAnnUpdateVectorNeighbour(
     Vector neighbour;
     vectorInitStatic(&neighbour, pIndex->header.nVectorType, blockData+off);
     float dist = vectorDistanceCos(&neighbour, pVec->vec);
-    if( toAddDist * DISKANN_DEFAULT_ALPHA < dist ){
+    if( toAddDist < dist ){
       insertIdx = i;
       break;
     }
@@ -414,8 +414,24 @@ static int diskAnnUpdateVectorNeighbour(
   blockData[off++] = pNodeToAdd->offset >> 40;
   blockData[off++] = pNodeToAdd->offset >> 48;
 
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
+  for( int i = 1; i < nNeighbours-1; i++ ){
+    Vector prev, curr;
+    vectorInitStatic(&prev, pIndex->header.nVectorType, blockData+off);
+    vectorInitStatic(&curr, pIndex->header.nVectorType, blockData+off+vectorSize(pIndex));
+    float prevDist = vectorDistanceCos(&prev, pVec->vec);
+    float currDist = vectorDistanceCos(&curr, pVec->vec);
+    if( prevDist * DISKANN_DEFAULT_ALPHA < currDist ){
+      // Prune remaining neighbours because they're too far away.
+      nNeighbours = i;
+      break;
+    }
+    off += vectorSize(pIndex);
+  }
+
   blockData[8] = nNeighbours;
   blockData[9] = nNeighbours >> 8;
+
   rc = sqlite3OsWrite(pIndex->pFd, blockData, DISKANN_BLOCK_SIZE, pVec->offset);
   return rc;
 }
@@ -640,7 +656,7 @@ static void diskAnnAddNeighbour(
   for( int i = 0; i < nNeighbors; i++ ){
     Vector *pNeighbour = aNeighbours[i];
     float distNeighbour = vectorDistanceCos(pVec, pNeighbour);
-    if( newNeighbourDist * DISKANN_DEFAULT_ALPHA < distNeighbour ){
+    if( newNeighbourDist < distNeighbour ){
       insertIdx = i;
       break;
     }
@@ -662,6 +678,20 @@ static void diskAnnAddNeighbour(
   aNeighbours[insertIdx] = pNewNeighbour->vec;
   aNeighbourMetadata[insertIdx].id = pNewNeighbour->id;
   aNeighbourMetadata[insertIdx].offset = pNewNeighbour->offset;
+
+  for( int i = 1; i < nNeighbors-1; i++ ){
+    Vector *pPrev, *pCurr;
+    pPrev = aNeighbours[i-1];
+    pCurr = aNeighbours[i];
+    float prevDist = vectorDistanceCos(pPrev, pVec);
+    float currDist = vectorDistanceCos(pCurr, pVec);
+    if( prevDist * DISKANN_DEFAULT_ALPHA < currDist ){
+      // Prune remaining neighbours because they're too far away.
+      nNeighbors = i;
+      break;
+    }
+  }
+
   *pnNeighbours = nNeighbors;
 }
 
