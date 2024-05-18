@@ -414,7 +414,7 @@ static int diskAnnUpdateVectorNeighbour(
   blockData[off++] = pNodeToAdd->offset >> 40;
   blockData[off++] = pNodeToAdd->offset >> 48;
 
-  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + insertIdx * vectorSize(pIndex);
   for( int i = insertIdx; i < nNeighbours-1; i++ ){
     Vector prev, curr;
     vectorInitStatic(&prev, pIndex->header.nVectorType, blockData+off);
@@ -680,7 +680,7 @@ static void diskAnnAddNeighbour(
   aNeighbourMetadata[insertIdx].id = pNewNeighbour->id;
   aNeighbourMetadata[insertIdx].offset = pNewNeighbour->offset;
 
-  for( int i = insertIdx; i < nNeighbors-1; i++ ){
+  for( int i = insertIdx+1; i < nNeighbors-1; i++ ){
     Vector *pPrev, *pCurr;
     pPrev = aNeighbours[i-1];
     pCurr = aNeighbours[i];
