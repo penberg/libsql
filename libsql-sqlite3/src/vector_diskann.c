@@ -598,15 +598,16 @@ static int diskAnnSearchInternal(
     assert( candidate!=NULL );
     markAsVisited(pCtx, candidate);
     for( int i = 0; i < candidate->nNeighbours; i++ ){
-      if( isVisited(pCtx, candidate->aNeighbours[i].id) ){
+      VectorMetadata *pNeigbourMetadata = &candidate->aNeighbours[i];
+      if( isVisited(pCtx, pNeigbourMetadata->id) ){
         continue;
       }
-      VectorNode *neighbour = diskAnnReadVector(pIndex, candidate->aNeighbours[i].offset);
-      if( neighbour==NULL ){
+      VectorNode *pNeighbour = diskAnnReadVector(pIndex, pNeigbourMetadata->offset);
+      if( pNeighbour==NULL ){
         continue;
       }
-      addCandidate(pCtx, neighbour);
-      vectorNodePut(neighbour);
+      addCandidate(pCtx, pNeighbour);
+      vectorNodePut(pNeighbour);
     }
   }
   vectorNodePut(start);
