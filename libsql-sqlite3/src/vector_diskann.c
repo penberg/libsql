@@ -578,16 +578,17 @@ static int diskAnnSearchInternal(
 ){
   VectorNode *start;
   u64 entryOffset;
-  u32 randomBlock;
+  int entryBlock;
+  u32 random;
   int nBlocks;
 
   nBlocks = diskannBlockCount(pIndex);
   if( nBlocks==0 ){
     return -1;
   }
-  sqlite3_randomness(4, &randomBlock);
-  randomBlock %= nBlocks;
-  entryOffset = randomBlock * blockSize(pIndex);
+  sqlite3_randomness(4, &random);
+  entryBlock = random % nBlocks + 1;
+  entryOffset = entryBlock * blockSize(pIndex);
   start = diskAnnReadVector(pIndex, entryOffset);
   if( start==NULL ){
     return 0;
