@@ -195,7 +195,7 @@ LIBOBJS0 = alter.lo analyze.lo attach.lo auth.lo \
          sqlite3session.lo select.lo sqlite3rbu.lo status.lo stmt.lo \
          table.lo threads.lo tokenize.lo treeview.lo trigger.lo \
          update.lo userauth.lo upsert.lo util.lo vacuum.lo \
-         vector.lo vectordiskann.lo vectorfloat32.lo vectorvtab.lo \
+         vector.lo vector1bit.lo vectordiskann.lo vectorfloat32.lo vectorvtab.lo \
          vdbe.lo vdbeapi.lo vdbeaux.lo vdbeblob.lo vdbemem.lo vdbesort.lo \
          vdbetrace.lo vdbevtab.lo \
          wal.lo walker.lo wasmedge_bindings.lo where.lo wherecode.lo whereexpr.lo \
@@ -302,6 +302,7 @@ SRC = \
   $(TOP)/src/vacuum.c \
   $(TOP)/src/vector.c \
   $(TOP)/src/vectorInt.h \
+  $(TOP)/src/vector1bit.c \
   $(TOP)/src/vectordiskann.c \
   $(TOP)/src/vectorfloat32.c \
   $(TOP)/src/vectorvtab.c \
@@ -1112,6 +1113,9 @@ vacuum.lo:	$(TOP)/src/vacuum.c $(HDR)
 
 vector.lo:	$(TOP)/src/vector.c $(HDR)
 	$(LTCOMPILE) $(TEMP_STORE) -c $(TOP)/src/vector.c
+
+vector1bit.lo:	$(TOP)/src/vector1bit.c $(HDR)
+	$(LTCOMPILE) $(TEMP_STORE) -c $(TOP)/src/vector1bit.c
 
 vectordiskann.lo:	$(TOP)/src/vectordiskann.c $(HDR)
 	$(LTCOMPILE) $(TEMP_STORE) -c $(TOP)/src/vectordiskann.c
