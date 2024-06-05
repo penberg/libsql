@@ -17,10 +17,14 @@ typedef u16 VectorType;
 typedef u32 VectorDims;
 
 #define VECTOR_TYPE_FLOAT32 0
+#define VECTOR_TYPE_1BIT 1
+
+typedef u16 VectorType;
 
 #define VECTOR_FLAGS_STATIC 1
 
 #define VECTOR_DISTANCE_COS 0
+#define VECTOR_DISTANCE_HAMMING 1
 
 /* An instance of this object represents a vector.
 */
@@ -34,11 +38,13 @@ struct Vector {
 size_t vectorDataSize(VectorType, VectorDims);
 Vector *vectorAlloc(VectorType, VectorDims);
 void vectorFree(Vector *v);
+Vector *vectorConvertTo(Vector *, VectorType);
 int vectorParse(sqlite3_value *, Vector *, char **);
 size_t vectorSerializeToBlob(Vector *, unsigned char *, size_t);
 size_t vectorDeserializeFromBlob(Vector *, const unsigned char *, size_t);
 void vectorDump(Vector *v);
-float vectorDistanceCos(Vector *, Vector *);
+float vectorDistanceCos(Vector*, Vector*);
+float vectorDistanceHamming(Vector*, Vector*);
 
 void vectorF32Dump(Vector *v);
 void vectorF32Deserialize(sqlite3_context *,Vector *v);
@@ -48,6 +54,11 @@ int vectorF3ParseBlob(sqlite3_value *, Vector *, char **);
 size_t vectorF32SerializeToBlob(Vector *, unsigned char *, size_t);
 size_t vectorF32DeserializeFromBlob(Vector *, const unsigned char *, size_t);
 float vectorF32DistanceCos(Vector *, Vector *);
+
+void vector1BitInitFromBlob(Vector*, const unsigned char*, size_t);
+void vector1BitDump(Vector*);
+float vector1BitDistanceHamming(Vector*, Vector*);
+Vector *vectorConvertTo1Bit(Vector*);
 
 int diskAnnCreateIndex(sqlite3 *, const char *, unsigned int, unsigned int);
 int diskAnnOpenIndex(sqlite3 *, const char *, DiskAnnIndex **);
