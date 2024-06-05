@@ -40,6 +40,8 @@ size_t vectorDataSize(VectorType type, VectorDims dims){
   switch( type ){
     case VECTOR_TYPE_FLOAT32:
       return dims * sizeof(float);
+    case VECTOR_TYPE_1BIT:
+      return (dims + 7) / 8;
     default:
       assert(0);
   }
@@ -109,6 +111,9 @@ static void vectorInitStatic(Vector *p, u32 type, const unsigned char *blob, siz
     case VECTOR_TYPE_FLOAT32:
       vectorF32InitFromBlob(p, blob, blobSz);
       break;
+    case VECTOR_TYPE_1BIT:
+      vector1BitInitFromBlob(p, blob, blobSz);
+      break;
     default:
       assert(0);
   }
@@ -116,12 +121,32 @@ static void vectorInitStatic(Vector *p, u32 type, const unsigned char *blob, siz
   p->flags = VECTOR_FLAGS_STATIC;
 }
 
+Vector *vectorConvertTo(Vector *vec, VectorType type){
+  switch (type) {
+    case VECTOR_TYPE_1BIT:
+      return vectorConvertTo1Bit(vec);
+    default:
+      assert(0);
+  }
+  return NULL;
+}
+
 float vectorDistanceCos(Vector *v1, Vector *v2){
   assert(v1->type == v2->type);
   switch (v1->type) {
     case VECTOR_TYPE_FLOAT32:
       return vectorF32DistanceCos(v1, v2);
-      break;
+    default:
+      assert(0);
+  }
+  return -1;
+}
+
+float vectorDistanceHamming(Vector *v1, Vector *v2){
+  assert(v1->type == v2->type);
+  switch (v1->type) {
+    case VECTOR_TYPE_1BIT:
+      return vector1BitDistanceHamming(v1, v2);
     default:
       assert(0);
   }
@@ -260,6 +285,9 @@ void vectorDump(Vector *pVec){
     case VECTOR_TYPE_FLOAT32:
       vectorF32Dump(pVec);
       break;
+    case VECTOR_TYPE_1BIT:
+      vector1BitDump(pVec);
+      break;
     default:
       assert(0);
   }
@@ -365,6 +393,10 @@ int vectorIndexCreate(Parse *pParse, Index *pIdx, IdList *pUsing){
   for( i=0; i<pUsing->nId; i++ ){
     if( sqlite3_stricmp(pUsing->a[i].zName, "diskann_cosine_ops")==0 ){
       nDistanceOps = VECTOR_DISTANCE_COS;
+      break;
+    }
+    if( sqlite3_stricmp(pUsing->a[i].zName, "diskann_hamming_ops")==0 ){
+      nDistanceOps = VECTOR_DISTANCE_HAMMING;
       break;
     }
     sqlite3ErrorMsg(pParse, "Unknown indexing method: %s", pUsing->a[i].zName);
