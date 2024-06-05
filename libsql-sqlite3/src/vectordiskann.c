@@ -62,7 +62,7 @@ typedef struct VectorNode VectorNode;
 /**
 ** The block size in bytes.
 **/
-#define DISKANN_BLOCK_SIZE 65536
+#define DISKANN_BLOCK_SIZE 1024
 
 /**
 ** The bit shift to get the block size in bytes.
@@ -184,6 +184,8 @@ static float diskannVectorDistance(DiskAnnIndex *pIndex, Vector *pVec1, Vector *
   switch( pIndex->nDistanceFunc ){
     case VECTOR_DISTANCE_COS:
       return vectorDistanceCos(pVec1, pVec2);
+    case VECTOR_DISTANCE_HAMMING:
+      return vectorDistanceHamming(pVec1, pVec2);
     default:
       assert(0);
       break;
@@ -666,7 +668,7 @@ out:
 
 int diskAnnInsert(
   DiskAnnIndex *pIndex,
-  Vector *pVec,
+  Vector *pVecToInsert,
   i64 id
 ){
   unsigned int nWritten;
@@ -674,6 +676,7 @@ int diskAnnInsert(
   SearchContext ctx;
   u64 nBlockRowid;
   u64 nEntryRowid;
+  Vector *pVec;
   int first = 0;
   u8 *pBuffer;
   int rc;
@@ -694,6 +697,11 @@ int diskAnnInsert(
     sqlite3_free(pBuffer);
     return SQLITE_NOMEM;
   }
+  pVec = vectorConvertTo(pVecToInsert, pIndex->nVectorType);
+  if ( pVec==NULL ) {
+    rc = SQLITE_NOMEM;
+    goto out_free_node;
+  }
   pNode->vec = pVec;
   diskAnnInitVectorNode(pIndex, pNode, id, pNode->offset);
   diskAnnFlushVector(pIndex, pNode);
@@ -711,7 +719,6 @@ int diskAnnInsert(
   }
   nWritten = diskAnnFlushVector(pIndex, pNode);
 
-  pNode->vec = NULL; /* HACK ALERT */
   deinitSearchContext(&ctx);
 
   if( nWritten<0 ){
@@ -732,6 +739,8 @@ static const char *diskAnnToVectorType(int nVectorType){
   switch( nVectorType ){
     case VECTOR_TYPE_FLOAT32:
       return "float32";
+    case VECTOR_TYPE_1BIT:
+      return "1bit";
     default:
       return NULL;
   }
@@ -741,6 +750,9 @@ static int diskAnnFromVectorType(const char *zVectorType){
   if( strcmp(zVectorType, "float32")==0 ){
     return VECTOR_TYPE_FLOAT32;
   }
+  if( strcmp(zVectorType, "1bit")==0 ){
+    return VECTOR_TYPE_1BIT;
+  }
   return -1;
 }
 
@@ -748,6 +760,8 @@ static const char *diskAnnToDistanceOps(int nDistanceFunc){
   switch( nDistanceFunc ){
     case VECTOR_DISTANCE_COS:
       return "cosine";
+    case VECTOR_DISTANCE_HAMMING:
+      return "hamming";
     default:
       return NULL;
   }
@@ -756,6 +770,9 @@ static const char *diskAnnToDistanceOps(int nDistanceFunc){
 static int diskannFromDistanceOps(const char *zDistanceOps){
   if( strcmp(zDistanceOps, "cosine")==0 ){
     return VECTOR_DISTANCE_COS;
+  }
+  if( strcmp(zDistanceOps, "hamming")==0 ){
+    return VECTOR_DISTANCE_HAMMING;
   }
   return -1;
 }
@@ -769,12 +786,23 @@ int diskAnnCreateIndex(
   const char *zDistanceOps;
   DiskAnnIndex *pIndex;
   sqlite3_stmt *pStmt;
+  int nVectorType;
   int rc;
 
   zDistanceOps = diskAnnToDistanceOps(nDistanceFunc);
   if( zDistanceOps==NULL ){
     return SQLITE_ERROR;
   }
+  switch( nDistanceFunc ){
+    case VECTOR_DISTANCE_COS:
+      nVectorType = VECTOR_TYPE_FLOAT32;
+      break;
+    case VECTOR_DISTANCE_HAMMING:
+      nVectorType = VECTOR_TYPE_1BIT;
+      break;
+    default:
+      return SQLITE_ERROR;
+  }  
   pIndex = sqlite3_malloc(sizeof(DiskAnnIndex));
   if( pIndex == NULL ){
     return SQLITE_NOMEM;
@@ -785,7 +813,7 @@ int diskAnnCreateIndex(
   pIndex->zShadow = sqlite3MPrintf(db, "%s_shadow", zIdxName);
   pIndex->nDistanceFunc = nDistanceFunc;
   pIndex->nBlockSize = DISKANN_BLOCK_SIZE >> DISKANN_BLOCK_SIZE_SHIFT;
-  pIndex->nVectorType = VECTOR_TYPE_FLOAT32;
+  pIndex->nVectorType = nVectorType;
   pIndex->nVectorDims = nDims;
 
   static const char zInsertSql[] =
