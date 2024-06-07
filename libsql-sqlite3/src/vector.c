@@ -66,7 +66,7 @@ Vector *vectorAlloc(VectorType type, VectorDims dims){
   if( p==NULL ){
     return NULL;
   }
-  vectorInit(p, type, dims, p + sizeof(Vector));
+  vectorInit(p, type, dims, ((char*) p) + sizeof(Vector));
   return p;
 }
 
@@ -81,7 +81,7 @@ static Vector *vectorContextAlloc(sqlite3_context *pCtx, u32 type){
     sqlite3_result_error_nomem(pCtx);
     return NULL;
   }
-  vectorInit(p, type, MAX_VECTOR_SZ, p + sizeof(Vector));
+  vectorInit(p, type, MAX_VECTOR_SZ, ((char*) p) + sizeof(Vector));
   return p;
 }
 
