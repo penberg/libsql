@@ -162,7 +162,7 @@ static int vectorVtabFilter(
   if( pVec==0 ){
     return SQLITE_NOMEM;
   }
-  vectorInit(pVec, VECTOR_TYPE_FLOAT32, MAX_VECTOR_SZ, (void*)pVec + sizeof(Vector));
+  vectorInit(pVec, VECTOR_TYPE_FLOAT32, MAX_VECTOR_SZ, ((char*)pVec) + sizeof(Vector));
   rc = vectorParse(argv[1], pVec, &zErrMsg);
   if( rc<0 ){
     goto error_free_vec;
