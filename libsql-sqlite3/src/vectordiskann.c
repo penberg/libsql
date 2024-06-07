@@ -281,7 +281,7 @@ static void diskAnnInitVectorNode(
   /* nNeighbours */
   diskAnnWriteLE16(pNode->pBuffer+off, 0);
   off += sizeof(u16);
-  off += vectorSerializeToBlob(pNode->vec, (void*)pNode->pBuffer+off, vectorSize(pIndex));
+  off += vectorSerializeToBlob(pNode->vec, pNode->pBuffer+off, vectorSize(pIndex));
 }
 
 /**
@@ -355,7 +355,7 @@ static int diskAnnUpdateVectorNeighbour(
 
   /* Insert new neighbour to the list. */
   off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + insertIdx * vectorSize(pIndex);
-  vectorSerializeToBlob(pVecToAdd, (void*)pVec->pBuffer+off, vectorSize(pIndex));
+  vectorSerializeToBlob(pVecToAdd, pVec->pBuffer+off, vectorSize(pIndex));
 
   off = neighbourMetadataOffset(pIndex) + insertIdx * NEIGHBOUR_METADATA_SIZE;
 
